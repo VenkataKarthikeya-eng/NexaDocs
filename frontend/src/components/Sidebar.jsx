@@ -163,6 +163,11 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
               <LogOut className="w-4 h-4" />
             </button>
           </div>
+
+          {/* Developer Attribution */}
+          <div className="pt-2 text-center text-[10px] text-slate-400 border-t border-slate-100">
+            Built by <a href="https://github.com/VenkataKarthikeya-eng" target="_blank" rel="noreferrer" className="font-semibold text-slate-600 hover:text-blue-600 transition-colors">CHERUKURI VENKATA KARTHIKEYA</a>
+          </div>
         </div>
       </aside>
     </>

@@ -16,7 +16,8 @@ import {
   ChevronRight,
   BarChart3,
   Globe2,
-  Users
+  Users,
+  Mail
 } from 'lucide-react';
 
 export default function LandingPage() {
@@ -394,7 +395,6 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Starter Tier */}
             <div className="bg-white border border-slate-200 rounded-2xl p-8 hover:border-slate-300 transition-all flex flex-col justify-between">
               <div>
                 <h3 className="font-bold text-slate-900 text-lg">Starter</h3>
@@ -418,7 +418,6 @@ export default function LandingPage() {
               </button>
             </div>
 
-            {/* Pro Tier (Popular) */}
             <div className="bg-white border-2 border-blue-600 rounded-2xl p-8 shadow-xl shadow-blue-500/10 relative flex flex-col justify-between">
               <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
                 Most Popular
@@ -446,7 +445,6 @@ export default function LandingPage() {
               </button>
             </div>
 
-            {/* Enterprise Custom */}
             <div className="bg-white border border-slate-200 rounded-2xl p-8 hover:border-slate-300 transition-all flex flex-col justify-between">
               <div>
                 <h3 className="font-bold text-slate-900 text-lg">Custom Enterprise</h3>
@@ -492,16 +490,57 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="bg-slate-900 text-slate-400 py-12 border-t border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
-          <div className="flex items-center gap-2 text-white font-bold">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6 text-xs">
+          <div className="flex items-center gap-3 text-white font-bold">
             <Sparkles className="w-4 h-4 text-blue-500" />
             <span>NexaDocs © 2026 Enterprise Inc.</span>
           </div>
+
+          {/* Professional Developer Attribution */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 bg-slate-800/80 px-4 py-2 rounded-xl border border-slate-700/60 text-slate-300">
+            <span className="font-medium text-[11px]">
+              Built by <strong className="text-white font-bold">CHERUKURI VENKATA KARTHIKEYA</strong>
+            </span>
+            <div className="flex items-center gap-3 text-slate-400">
+              <a
+                href="mailto:venkatakarthikeya2005@gmail.com"
+                className="hover:text-blue-400 transition-colors flex items-center gap-1"
+                title="Email Developer"
+              >
+                <Mail className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline text-[11px]">Email</span>
+              </a>
+              <a
+                href="https://github.com/VenkataKarthikeya-eng"
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-white transition-colors flex items-center gap-1"
+                title="GitHub Profile"
+              >
+                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                  <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                </svg>
+                <span className="hidden sm:inline text-[11px]">GitHub</span>
+              </a>
+              <a
+                href="https://www.linkedin.com/in/cherukuri-venkata-karthikeya-4b54393ab/"
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-blue-400 transition-colors flex items-center gap-1"
+                title="LinkedIn Profile"
+              >
+                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                  <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+                </svg>
+                <span className="hidden sm:inline text-[11px]">LinkedIn</span>
+              </a>
+            </div>
+          </div>
+
           <div className="flex gap-6">
-            <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
-            <a href="#" className="hover:text-white transition-colors">Security SLA</a>
-            <a href="#" className="hover:text-white transition-colors">API Docs</a>
+            <a href="#features" className="hover:text-white transition-colors">Features</a>
+            <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
+            <a href="#security" className="hover:text-white transition-colors">Security SLA</a>
           </div>
         </div>
       </footer>

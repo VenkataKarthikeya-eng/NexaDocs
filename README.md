@@ -8,6 +8,9 @@
 ![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)
 ![React](https://img.shields.io/badge/React-18.0-cyan.svg)
 
+- **Live Demo**: [https://nexadocs.vercel.app](https://nexadocs.vercel.app)
+- **GitHub Repository**: [https://github.com/VenkataKarthikeya-eng/NexaDocs](https://github.com/VenkataKarthikeya-eng/NexaDocs)
+
 ---
 
 ## 🌟 Product Overview
@@ -44,7 +47,7 @@ User (Browser SPA)
 
 ---
 
-## 🧰 Tech Stack
+## 🧰 Technology Stack
 
 ### Frontend
 - **Framework**: React 18 + Vite
@@ -63,29 +66,58 @@ User (Browser SPA)
 
 ---
 
-## 🚀 Quickstart Guide (Local Development)
+## 📁 Project Structure
 
-### 1. Backend Setup
+```
+NexaDocs/
+├── frontend/                 # React + Vite + Tailwind CSS + Framer Motion + Zustand
+│   ├── src/
+│   │   ├── components/       # Sidebar, Header, DocumentCard, UploadModal, ToastContainer
+│   │   ├── pages/            # LandingPage, AuthPages, Dashboard, DocumentLibrary, AIWorkspace, Profile
+│   │   ├── store/            # useAuthStore, useDocStore, useChatStore, useToastStore
+│   │   ├── services/         # Axios client with JWT interceptor
+│   │   └── App.jsx           # React Router v6
+│   └── package.json
+├── backend/                  # FastAPI + SQLAlchemy + JWT + FAISS RAG Engine
+│   ├── app/
+│   │   ├── api/              # auth, users, documents, ai endpoints
+│   │   ├── core/             # config, security (JWT/bcrypt), database
+│   │   ├── models/           # SQLAlchemy models (User, Document, ChatHistory, Insight)
+│   │   ├── schemas/          # Pydantic validation schemas
+│   │   └── services/         # pdf_service, embedding_service, rag_service, storage_service
+│   ├── uploads/              # Local PDF storage directory
+│   ├── requirements.txt
+│   └── render.yaml
+├── docker-compose.yml        # PostgreSQL + FastAPI + React Vite orchestrator
+├── .env.example              # Environment variables template
+└── README.md
+```
+
+---
+
+## 🚀 Local Installation & Setup
+
+### 1. Backend Setup (FastAPI)
 
 ```bash
 cd backend
 
 # Create virtual environment
 python -m venv venv
-# Windows: venv\Scripts\activate | Linux/macOS: source venv/bin/activate
+# On Windows: venv\Scripts\activate | On macOS/Linux: source venv/bin/activate
 
 # Install requirements
 pip install -r requirements.txt
 
-# Run automated test suite
+# Run automated backend test suite
 python test_backend.py
 
 # Launch FastAPI development server
 uvicorn app.main:app --reload --port 8000
 ```
-Interactive Swagger Documentation: `http://localhost:8000/docs`
+Interactive Swagger Docs: `http://localhost:8000/docs`
 
-### 2. Frontend Setup
+### 2. Frontend Setup (React + Vite)
 
 ```bash
 cd frontend
@@ -96,23 +128,14 @@ npm install
 # Test production build
 npm run build
 
-# Launch Vite development server
+# Start Vite development server
 npm run dev -- --port 5173
 ```
-NexaDocs SaaS Application: `http://localhost:5173`
+NexaDocs Web App: `http://localhost:5173`
 
 ---
 
-## 🐳 Docker Deployment
-
-```bash
-# Spin up PostgreSQL, FastAPI Backend, and Vite Frontend
-docker-compose up --build
-```
-
----
-
-## 🔑 Environment Configuration
+## 🔑 Environment Setup
 
 Create a `.env` file from `.env.example`:
 
@@ -123,18 +146,16 @@ DATABASE_URL=postgresql://nexadocs_user:securepassword@localhost:5432/nexadocs_d
 # JWT Security (Generate with: openssl rand -hex 32)
 JWT_SECRET=<generate-secure-random-64-character-secret>
 
-# Cloud File Storage (LOCAL, S3, CLOUDINARY)
-STORAGE_TYPE=LOCAL
-AWS_S3_BUCKET=nexadocs-production-bucket
-AWS_REGION=us-east-1
-
 # AI LLM Provider Key
 OPENAI_API_KEY=sk-your-openai-api-key-here
+
+# Cloud File Storage (LOCAL, S3, CLOUDINARY)
+STORAGE_PROVIDER=LOCAL
 ```
 
 ---
 
-## 🔌 API Endpoint Documentation
+## 🔌 API Documentation
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
@@ -150,31 +171,34 @@ OPENAI_API_KEY=sk-your-openai-api-key-here
 
 ---
 
-## 🔑 Preloaded Demo Credentials
+## ☁️ Deployment Guide
 
-For instant demonstration access without registering:
-- **Email**: `sarah.j@enterprise.com`
-- **Password**: `••••••••••••`
-- **Preloaded Documents**: *Q3 Enterprise Financial Report.pdf*, *NexaDocs Technical Blueprint.pdf*, *SOC2 Security SLA.pdf*.
+### Backend Deployment (Render)
+1. Push codebase to GitHub repository: `https://github.com/VenkataKarthikeya-eng/NexaDocs`.
+2. Connect repository in [Render Dashboard](https://dashboard.render.com/). Render will detect `backend/render.yaml` and deploy both the **Free Web Service** and **Free PostgreSQL Database**.
 
----
-
-## 📸 Portfolio Screenshots Checklist
-
-1. `landing_page.png` — Hero section, trust badges, and interactive workspace sandbox tabs.
-2. `dashboard.png` — Analytics cards, storage meter, and Recharts activity graphs.
-3. `ai_workspace.png` — 3-panel RAG workspace showing document list, SSE streamed chat with page citations (`📄 Page 4 [94% Match]`), and right insights panel.
-4. `document_library.png` — Search filter, category tabs, and drag & drop upload dropzone.
+### Frontend Deployment (Vercel)
+1. Import `frontend/` directory into Vercel.
+2. Set Environment Variable `VITE_API_URL` to your Render API URL.
+3. Vercel will build and host using `frontend/vercel.json` SPA rewrite rules.
 
 ---
 
-## 📝 Resume & Portfolio Description
+## 📸 Screenshots
 
-**NexaDocs — Full-Stack AI Document Intelligence Platform**
-- Architected an enterprise-grade document intelligence platform processing multi-page PDFs using FastAPI, React 18, and FAISS vector indexing.
-- Implemented RAG (Retrieval-Augment Generation) context search with recursive chunking and exact page-level source citations.
-- Engineered a 3-Panel workspace featuring Server-Sent Events (SSE) token streaming, automated executive summaries, and entity extractions.
-- Built production deployment pipeline with Docker Compose, Render PostgreSQL, Vercel SPA routing, and JWT authentication with bcrypt password hashing.
+1. **Landing Page**: Enterprise hero section, trust indicators, and live product sandbox widget.
+2. **Dashboard**: Storage meter, metrics cards, Recharts weekly document activity bar chart, and AI vector token trend area graph.
+3. **3-Panel AI Workspace**: Document selector tree, center SSE streaming chat with exact source page citation badges (`📄 Page 4 [94% Match]`), and right automated insights panel.
+4. **Document Library**: Grid/List view switcher, category tabs, and PDF dropzone modal.
+
+---
+
+## 👤 Developer
+
+**CHERUKURI VENKATA KARTHIKEYA**
+- **Email**: [venkatakarthikeya2005@gmail.com](mailto:venkatakarthikeya2005@gmail.com)
+- **GitHub**: [https://github.com/VenkataKarthikeya-eng](https://github.com/VenkataKarthikeya-eng)
+- **LinkedIn**: [https://www.linkedin.com/in/cherukuri-venkata-karthikeya-4b54393ab/](https://www.linkedin.com/in/cherukuri-venkata-karthikeya-4b54393ab/)
 
 ---
 
