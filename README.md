@@ -8,7 +8,7 @@
 ![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)
 ![React](https://img.shields.io/badge/React-18.0-cyan.svg)
 
-- **Live Demo**: [https://nexadocs.vercel.app](https://nexadocs.vercel.app)
+- **Live Demo**: [https://nexadocs.vercel.app](https://nexa-docs.vercel.app/)
 - **GitHub Repository**: [https://github.com/VenkataKarthikeya-eng/NexaDocs](https://github.com/VenkataKarthikeya-eng/NexaDocs)
 
 ---
