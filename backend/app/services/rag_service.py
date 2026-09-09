@@ -30,27 +30,59 @@ class RAGService:
         else:
             citations = [{"page": 1, "section": "Executive Overview", "relevance_score": 0.95}]
 
-        # Check for OpenAI API key
-        if settings.OPENAI_API_KEY and len(settings.OPENAI_API_KEY) > 10:
+        # Check for Google Gemini API Key
+        if settings.GEMINI_API_KEY and len(settings.GEMINI_API_KEY) > 10:
             try:
-                import openai
-                client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+                import httpx
+                try:
+                    import truststore
+                    truststore.inject_into_ssl()
+                except Exception:
+                    pass
+
+                system_instruction = (
+                    "You are NexaDocs AI, an enterprise AI document assistant. "
+                    "Answer the user's question accurately, concisely, and professionally based strictly on the provided context excerpts from the document. "
+                    "Always reference the relevant section or page information when possible. "
+                    "If the answer cannot be found in the context, state that clearly and summarize the closest related facts from the context."
+                )
                 prompt = (
-                    f"You are NexaDocs AI. Answer the user question based strictly on context below.\n"
-                    f"Context: {context_str}\n\nQuestion: {question}"
+                    f"{system_instruction}\n\n"
+                    f"Document Name: {filename}\n"
+                    f"Document Retrieved Context:\n{context_str}\n\n"
+                    f"User Question: {question}\n\n"
+                    f"Answer:"
                 )
-                res = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.2
-                )
-                answer = res.choices[0].message.content
-                return {
-                    "answer": answer,
-                    "sources": citations
+
+                model_name = settings.GEMINI_MODEL or "gemini-flash-latest"
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={settings.GEMINI_API_KEY}"
+
+                payload = {
+                    "contents": [{
+                        "parts": [{"text": prompt}]
+                    }],
+                    "generationConfig": {
+                        "temperature": 0.2,
+                        "maxOutputTokens": 800
+                    }
                 }
+
+                with httpx.Client(timeout=20.0) as client:
+                    res = client.post(url, json=payload)
+                    if res.status_code == 200:
+                        data = res.json()
+                        candidates = data.get("candidates", [])
+                        if candidates and "content" in candidates[0]:
+                            parts = candidates[0]["content"].get("parts", [])
+                            if parts and "text" in parts[0]:
+                                return {
+                                    "answer": parts[0]["text"].strip(),
+                                    "sources": citations
+                                }
+                    else:
+                        print(f"[RAGService] Gemini API returned status {res.status_code}: {res.text[:200]}")
             except Exception as e:
-                print(f"OpenAI RAG call error: {e}")
+                print(f"[RAGService] Google Gemini RAG call error: {e}")
 
         # Deterministic RAG Intelligence Response Engine
         q = question.lower()

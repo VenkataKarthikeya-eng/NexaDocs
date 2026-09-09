@@ -14,8 +14,10 @@ services:
         fromDatabase:
           name: nexadocs-db
           property: connectionString
-      - key: OPENAI_API_KEY
+      - key: GEMINI_API_KEY
         sync: false
+      - key: GEMINI_MODEL
+        value: gemini-flash-latest
       - key: STORAGE_TYPE
         value: LOCAL
 

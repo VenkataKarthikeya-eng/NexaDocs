@@ -21,7 +21,9 @@ class Settings(BaseSettings):
     STORAGE_TYPE: str = "LOCAL" # LOCAL, S3, CLOUDINARY
     UPLOAD_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
 
-    # AI Config
+    # AI Config (Google Gemini Integration)
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-flash-latest"
     OPENAI_API_KEY: str = ""
 
     # CORS Allowed Origins

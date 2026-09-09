@@ -71,8 +71,9 @@
 
 ### AI & Vector Engine
 - **FAISS (`faiss-cpu`)**: High-speed vector similarity search and index persistence
-- **RAG Architecture**: Contextual chunk retrieval and synthesis pipeline
-- **Embeddings**: Normalized vector representations with SentenceTransformers / OpenAI integration
+- **RAG Architecture**: Contextual chunk retrieval and synthesis pipeline with source citations
+- **Google Gemini API**: Enterprise LLM answer generation and document insights (`gemini-flash-latest`) with robust offline fallback
+- **Embeddings**: Normalized vector representations with recursive chunking and metadata tracking
 
 ---
 
@@ -163,8 +164,9 @@ DATABASE_URL=postgresql://nexadocs_user:securepassword@localhost:5432/nexadocs_d
 # JWT Security
 JWT_SECRET=your-secure-random-64-character-secret
 
-# AI LLM Provider Key (Optional: enable for OpenAI GPT synthesis)
-OPENAI_API_KEY=
+# Google Gemini API Key (for LLM answer synthesis and document insights)
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-flash-latest
 
 # Storage Provider (LOCAL, S3, CLOUDINARY)
 STORAGE_TYPE=LOCAL
