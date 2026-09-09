@@ -20,18 +20,26 @@ import { useChatStore } from '../store/useChatStore';
 import { toast } from '../store/useToastStore';
 
 export default function AIWorkspace() {
-  const { documents, activeDoc, setActiveDoc } = useDocStore();
-  const { getMessagesForDoc, askQuestion, isThinking, clearChat } = useChatStore();
+  const { documents, activeDoc, setActiveDoc, fetchDocuments } = useDocStore();
+  const { getMessagesForDoc, askQuestionStream, loadChatHistory, isThinking, clearChat } = useChatStore();
 
   const [inputQuery, setInputQuery] = useState('');
   const [docSearch, setDocSearch] = useState('');
-  const [streamingText, setStreamingText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
-  const [streamSources, setStreamSources] = useState([]);
   const abortControllerRef = useRef(null);
+
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
 
   const currentDoc = activeDoc || documents[0];
   const messages = currentDoc ? getMessagesForDoc(currentDoc.id) : [];
+
+  useEffect(() => {
+    if (currentDoc?.id) {
+      loadChatHistory(currentDoc.id);
+    }
+  }, [currentDoc?.id]);
 
   const handleSend = async (e) => {
     if (e) e.preventDefault();
@@ -40,15 +48,18 @@ export default function AIWorkspace() {
     const queryText = inputQuery;
     setInputQuery('');
     
-    // Simulate/Execute Progressive Streaming Chat
+    abortControllerRef.current = new AbortController();
     setIsStreaming(true);
-    setStreamingText('');
-    setStreamSources([]);
 
-    // Ask store to register user message
-    await askQuestion(currentDoc.id, queryText);
+    const result = await askQuestionStream(currentDoc.id, queryText, abortControllerRef.current.signal);
     setIsStreaming(false);
-    toast.success("AI response completed with page citations.");
+    abortControllerRef.current = null;
+
+    if (result?.success) {
+      toast.success("AI response completed with page citations.");
+    } else if (result?.aborted) {
+      toast.info("AI token generation stopped.");
+    }
   };
 
   const handleStopStream = () => {
@@ -56,12 +67,15 @@ export default function AIWorkspace() {
       abortControllerRef.current.abort();
     }
     setIsStreaming(false);
-    toast.info("AI token generation stopped.");
   };
 
-  const handlePromptChipClick = (promptText) => {
+  const handlePromptChipClick = async (promptText) => {
     if (isThinking || isStreaming || !currentDoc) return;
-    askQuestion(currentDoc.id, promptText);
+    abortControllerRef.current = new AbortController();
+    setIsStreaming(true);
+    await askQuestionStream(currentDoc.id, promptText, abortControllerRef.current.signal);
+    setIsStreaming(false);
+    abortControllerRef.current = null;
   };
 
   const filteredDocList = documents.filter((d) =>

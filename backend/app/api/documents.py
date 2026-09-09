@@ -155,6 +155,7 @@ def delete_document(doc_id: str, db: Session = Depends(get_db), current_user: Us
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
 
     storage_service.delete_file(doc.file_path)
+    embedding_service.delete_index(doc.id)
     db.delete(doc)
     db.commit()
     return None

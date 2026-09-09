@@ -84,7 +84,7 @@ class RAGService:
         }
 
     @staticmethod
-    async def stream_answer(doc_id: str, filename: str, question: str) -> AsyncGenerator[str, None]:
+    async def stream_answer(doc_id: str, filename: str, question: str, user_id: str = None) -> AsyncGenerator[str, None]:
         """
         Server-Sent Events (SSE) generator for streaming tokens progressively.
         """
@@ -92,16 +92,34 @@ class RAGService:
         answer_text = full_res["answer"]
         sources = full_res["sources"]
 
+        if user_id:
+            try:
+                from app.core.database import SessionLocal
+                from app.models.chat_history import ChatHistory
+                db = SessionLocal()
+                chat_rec = ChatHistory(
+                    user_id=user_id,
+                    document_id=doc_id,
+                    question=question,
+                    answer=answer_text,
+                    sources=sources
+                )
+                db.add(chat_rec)
+                db.commit()
+                db.close()
+            except Exception as e:
+                print(f"Error saving stream chat record: {e}")
+
         # Yield metadata initial event
         yield f"data: {json.dumps({'type': 'start', 'sources': sources})}\n\n"
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(0.04)
 
         # Tokenize and stream progressive word chunks
         words = answer_text.split(" ")
         for i in range(0, len(words), 2):
             token_chunk = " ".join(words[i:i+2]) + " "
             yield f"data: {json.dumps({'type': 'token', 'text': token_chunk})}\n\n"
-            await asyncio.sleep(0.04)
+            await asyncio.sleep(0.03)
 
         # Yield completion event
         yield f"data: {json.dumps({'type': 'done'})}\n\n"

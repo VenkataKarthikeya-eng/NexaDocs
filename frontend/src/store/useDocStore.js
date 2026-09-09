@@ -86,15 +86,17 @@ export const useDocStore = create((set, get) => ({
 
   fetchDocuments: async () => {
     try {
-      const response = await api.get('/documents').catch(() => null);
-      if (response && response.data && response.data.length > 0) {
-        set({
-          documents: response.data,
-          activeDoc: response.data[0] || get().activeDoc
-        });
+      const response = await api.get('/documents');
+      if (response && response.data) {
+        const docs = response.data;
+        set((state) => ({
+          documents: docs,
+          activeDoc: docs.length > 0 ? (docs.find(d => d.id === state.activeDoc?.id) || docs[0]) : null,
+          error: null
+        }));
       }
     } catch (e) {
-      console.warn("Backend fetch fallback to local store");
+      console.warn("Backend fetch error, preserving current documents:", e);
     }
   },
 
@@ -108,70 +110,50 @@ export const useDocStore = create((set, get) => ({
       const response = await api.post('/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (progressEvent) => {
-          const pct = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          set({ uploadProgress: Math.min(pct, 90) });
+          if (progressEvent.total) {
+            const pct = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            set({ uploadProgress: Math.min(pct, 90) });
+          }
         }
-      }).catch(() => null);
+      });
 
-      let newDoc;
       if (response && response.data) {
-        newDoc = response.data;
-      } else {
-        const ext = file.name.split('.').pop().toUpperCase();
-        const pages = Math.floor(Math.random() * 20) + 5;
-        newDoc = {
-          id: 'doc-' + Date.now(),
-          title: file.name,
-          filename: file.name,
-          fileSize: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
-          pageCount: pages,
-          chunkCount: pages * 4,
-          status: 'Ready',
-          category: ext === 'PDF' ? 'Engineering' : 'General',
-          createdAt: new Date().toISOString().split('T')[0],
-          summary: `Automated NexaDocs RAG extraction completed for ${file.name}. Vector index generated with ${pages * 4} embedded semantic chunks ready for question answering.`,
-          topics: ['Uploaded Document', 'Semantic Index', 'Vector Embeddings', 'Automated RAG'],
-          entities: [
-            { name: file.name, type: 'Source File', detail: 'Original Uploaded Document' },
-            { name: 'FAISS Index', type: 'Status', detail: 'Vector Search Active' },
-            { name: 'Upload Date', type: 'Timestamp', detail: new Date().toLocaleDateString() }
-          ],
-          highlights: [
-            { page: 1, text: `Successfully indexed document ${file.name} for immediate AI chat and insights.` }
-          ]
-        };
+        const newDoc = response.data;
+        set((state) => ({
+          documents: [newDoc, ...state.documents.filter(d => d.id !== newDoc.id)],
+          activeDoc: newDoc,
+          isUploading: false,
+          uploadProgress: 100,
+          error: null
+        }));
+
+        setTimeout(() => set({ uploadProgress: 0 }), 1000);
+        return { success: true, doc: newDoc };
       }
-
-      set((state) => ({
-        documents: [newDoc, ...state.documents],
-        activeDoc: newDoc,
-        isUploading: false,
-        uploadProgress: 100
-      }));
-
-      setTimeout(() => set({ uploadProgress: 0 }), 1000);
-      return { success: true, doc: newDoc };
+      throw new Error("Upload failed: No data returned from server");
     } catch (err) {
-      set({ isUploading: false, uploadProgress: 0, error: err.message || 'Upload failed' });
-      return { success: false, error: err.message };
+      const msg = err.response?.data?.detail || err.message || 'Upload failed';
+      set({ isUploading: false, uploadProgress: 0, error: msg });
+      return { success: false, error: msg };
     }
   },
 
   deleteDocument: async (docId) => {
     try {
-      await api.delete(`/documents/${docId}`).catch(() => null);
-    } catch (e) {
-      console.warn('API delete fallback mode');
+      await api.delete(`/documents/${docId}`);
+      set((state) => {
+        const updatedDocs = state.documents.filter((d) => d.id !== docId);
+        const nextActive = state.activeDoc?.id === docId ? (updatedDocs[0] || null) : state.activeDoc;
+        return {
+          documents: updatedDocs,
+          activeDoc: nextActive
+        };
+      });
+      return { success: true };
+    } catch (err) {
+      console.error('Document delete error:', err);
+      return { success: false, error: err.response?.data?.detail || err.message };
     }
-
-    set((state) => {
-      const updatedDocs = state.documents.filter((d) => d.id !== docId);
-      const nextActive = state.activeDoc?.id === docId ? (updatedDocs[0] || null) : state.activeDoc;
-      return {
-        documents: updatedDocs,
-        activeDoc: nextActive
-      };
-    });
   },
 
   getFilteredDocuments: () => {

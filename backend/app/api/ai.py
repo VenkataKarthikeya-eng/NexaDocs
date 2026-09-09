@@ -62,9 +62,32 @@ async def ai_chat_stream(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
 
     return StreamingResponse(
-        rag_service.stream_answer(doc.id, doc.filename, req.question),
+        rag_service.stream_answer(doc.id, doc.filename, req.question, user_id=current_user.id),
         media_type="text/event-stream"
     )
+
+@router.get("/chat/history/{doc_id}")
+def get_chat_history(
+    doc_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    chats = db.query(ChatHistory).filter(
+        ChatHistory.document_id == doc_id,
+        ChatHistory.user_id == current_user.id
+    ).order_by(ChatHistory.timestamp.asc()).all()
+
+    return [
+        {
+            "id": c.id,
+            "sender": "assistant",
+            "question": c.question,
+            "answer": c.answer,
+            "timestamp": c.timestamp.strftime("%I:%M %p"),
+            "sources": c.sources or []
+        }
+        for c in chats
+    ]
 
 @router.post("/analyze", response_model=InsightResponse)
 def analyze_document(

@@ -21,9 +21,9 @@ export default function ProfilePage() {
   const [role, setRole] = useState(user?.role || 'Principal Product Manager');
   const [saved, setSaved] = useState(false);
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    updateProfile({ name, company, role });
+    await updateProfile({ name, company, role });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };

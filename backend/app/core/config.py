@@ -1,27 +1,28 @@
 import os
 import secrets
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+ENV_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env")
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "NexaDocs"
-    API_V1_STR: str = "/api"
-    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+    API_V1_STR: str = "/api/v1"
+    ENVIRONMENT: str = "development"
     
     # Secure JWT Secret Management
-    # Auto-generate secure 64-char random hex secret if omitted or hardcoded default
-    JWT_SECRET: str = os.getenv("JWT_SECRET", "")
+    JWT_SECRET: str = "nexadocs-enterprise-production-secure-jwt-key-2026-v1"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
 
     # Database: Render PostgreSQL Production & Local SQLite Fallback
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+    DATABASE_URL: str = ""
 
     # Storage & Uploads Configuration
-    STORAGE_TYPE: str = os.getenv("STORAGE_TYPE", "LOCAL") # LOCAL, S3, CLOUDINARY
-    UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads"))
+    STORAGE_TYPE: str = "LOCAL" # LOCAL, S3, CLOUDINARY
+    UPLOAD_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
 
     # AI Config
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_API_KEY: str = ""
 
     # CORS Allowed Origins
     CORS_ORIGINS: list = [
@@ -31,14 +32,18 @@ class Settings(BaseSettings):
         "https://nexadocs.vercel.app"
     ]
 
-    class Config:
-        case_sensitive = True
+    model_config = SettingsConfigDict(
+        env_file=ENV_PATH if os.path.exists(ENV_PATH) else None,
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=True
+    )
 
 settings = Settings()
 
-# 1. Fallback / Random JWT secret generation to prevent hardcoded secrets
-if not settings.JWT_SECRET or "nexadocs-super-secret" in settings.JWT_SECRET or len(settings.JWT_SECRET) < 32:
-    settings.JWT_SECRET = secrets.token_hex(32)
+# 1. Fallback JWT secret ensure at least 32 chars
+if not settings.JWT_SECRET or len(settings.JWT_SECRET) < 32:
+    settings.JWT_SECRET = "nexadocs-enterprise-production-secure-jwt-key-2026-v1"
 
 # 2. Render PostgreSQL URL Normalization (postgres:// -> postgresql://)
 if settings.DATABASE_URL.startswith("postgres://"):

@@ -1,199 +1,301 @@
 # NexaDocs — AI-Powered Document Intelligence Platform
 
-> **Startup-Quality Enterprise Document Intelligence & RAG Workspace** built with React, Vite, Tailwind CSS, FastAPI, PostgreSQL, and FAISS Vector Search.
+> **Enterprise Document Intelligence & RAG Workspace** built with React 19, Vite, Tailwind CSS, FastAPI, PostgreSQL, and FAISS Vector Search.
 
 ![NexaDocs Platform](https://img.shields.io/badge/NexaDocs-v2.4.0-blue.svg)
 ![Build Status](https://img.shields.io/badge/Build-Passing-emerald.svg)
 ![License](https://img.shields.io/badge/License-MIT-slate.svg)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)
-![React](https://img.shields.io/badge/React-18.0-cyan.svg)
+![React](https://img.shields.io/badge/React-19.0-cyan.svg)
 
-- **Live Demo**: [https://nexadocs.vercel.app](https://nexa-docs.vercel.app/)
+- **Live Frontend**: [https://nexa-docs.vercel.app/](https://nexa-docs.vercel.app/)
+- **Backend Deployment**: Planned on Render (FastAPI ASGI Web Service + Render PostgreSQL)
 - **GitHub Repository**: [https://github.com/VenkataKarthikeya-eng/NexaDocs](https://github.com/VenkataKarthikeya-eng/NexaDocs)
 
 ---
 
 ## 🌟 Product Overview
 
-**NexaDocs** helps enterprise teams upload complex documents (financial audits, technical architecture blueprints, security SLAs, research papers), manage knowledge bases, and interact with structured knowledge through an intelligent 3-panel RAG workspace.
-
-Built with modern SaaS principles:
-- **Clean White Interface (`#FFFFFF`) & Neutral Slate Surfaces (`#F8FAFC`)**: Styled after Stripe, Linear, and Vercel.
-- **Strictly No Gimmicks**: Non-robotic, enterprise light theme without dark mode defaults or neon effects.
-- **Page-Level Source Citations**: Every AI response includes exact page citations, section headers, and relevance match scores (`94% Match`).
+**NexaDocs** is an AI-powered Document Intelligence Platform designed for enterprise teams, financial analysts, legal auditors, and researchers. It allows users to upload multi-page PDF documents, automatically extracts and chunks textual layers, indexes embeddings into a persistent FAISS vector store, and provides natural-language Q&A powered by a multi-layered RAG (Retrieval-Augmented Generation) pipeline with page-level citations and real-time Server-Sent Events (SSE) token streaming.
 
 ---
 
-## 🏗️ Technical Architecture
+## ✨ Key Features
 
-```
-User (Browser SPA)
-       │
-       ├──► React 18 + Vite + Tailwind CSS (Vercel CDN)
-       │          │ (Axios REST + SSE Streaming)
-       │          ▼
-       └──► FastAPI Async Backend (Render Web Service)
-                  │
-                  ├──► JWT Authentication & bcrypt Password Hashing
-                  │
-                  ├──► PyPDF / PDFPlumber Text Extractor
-                  │
-                  ├──► Recursive 500-char Chunking & FAISS Vector Indexing
-                  │
-                  ├──► RAG Context Retrieval & OpenAI LLM Engine
-                  │
-                  └──► PostgreSQL / SQLite Database (Render Postgres)
-```
+1. **PDF Document Intelligence**:
+   - Multi-page text extraction with PyPDF.
+   - Enforces 25MB file size limit and strict PDF file type validation.
+   - Recursive 500-character chunking with 100-character overlap preserving page and chunk metadata.
+
+2. **RAG Chatbot with Page-Level Citations**:
+   - Natural language question-answering over uploaded documents.
+   - Every answer includes verified page citations, section references, and relevance confidence scores (e.g., `94% Match`).
+
+3. **Persistent FAISS Vector Search**:
+   - C++ accelerated vector similarity search using `faiss-cpu` (`IndexFlatIP`).
+   - Persistent index storage on disk (`.faiss` and `_chunks.json`) ensuring knowledge bases survive server restarts.
+   - On-demand index reconstruction fallback from original documents.
+
+4. **Automated AI Insights**:
+   - Automatic generation of executive summaries, topic clusters, entity extractions, and key takeaways for each document.
+   - Cross-document topic and entity aggregation.
+
+5. **Enterprise JWT Authentication**:
+   - Secure token-based authentication with `bcrypt` password hashing.
+   - Protected API routes, user profile management, and PostgreSQL session persistence.
+
+6. **Real-Time SSE Streaming**:
+   - Progressive token streaming via Server-Sent Events (`/api/v1/ai/chat/stream`).
+   - Interactive stream cancellation with a dedicated stop-generation control.
 
 ---
 
 ## 🧰 Technology Stack
 
 ### Frontend
-- **Framework**: React 18 + Vite
-- **Styling**: Tailwind CSS + Google Fonts Inter
-- **State Management**: Zustand (`useAuthStore`, `useDocStore`, `useChatStore`, `useToastStore`)
-- **Analytics**: Recharts (Weekly Activity Bar & AI Token Area Charts)
-- **HTTP Client**: Axios with automatic JWT bearer interceptors
+- **React 19**: Modern UI component architecture
+- **Vite**: Ultra-fast build tool and development server
+- **Tailwind CSS**: Professional enterprise light-theme styling (Inter font, slate surfaces, blue accents)
+- **Zustand**: Reactive state management (`useAuthStore`, `useDocStore`, `useChatStore`, `useToastStore`)
+- **Recharts**: Document activity analytics and token consumption trajectory
+- **Lucide React**: Clean, accessible enterprise icons
+- **Axios**: HTTP client with JWT interceptor
 
 ### Backend
-- **Framework**: FastAPI + Uvicorn (ASGI)
-- **Database**: PostgreSQL (Production) / SQLite (Local Dev) via SQLAlchemy ORM
-- **Security**: JWT (`python-jose`) + `bcrypt` password hashing
-- **PDF Extraction**: PyPDF / PDFPlumber
-- **Vector Search**: FAISS (`faiss-cpu`) + Cosine Vector Engine
-- **RAG Engine**: LangChain / SentenceTransformers / OpenAI API with fallback intelligence generator
+- **FastAPI**: High-performance asynchronous Python ASGI framework
+- **SQLAlchemy 2.0**: Object-relational mapping and database session management
+- **PostgreSQL**: Production-grade relational database for users, documents, chat histories, and insights
+- **Uvicorn**: Lightning-fast ASGI production server
+- **Pydantic v2 & Pydantic-Settings**: Strict data validation and environment configuration
+- **python-jose & bcrypt**: JWT bearer tokens and password hashing
+
+### AI & Vector Engine
+- **FAISS (`faiss-cpu`)**: High-speed vector similarity search and index persistence
+- **RAG Architecture**: Contextual chunk retrieval and synthesis pipeline
+- **Embeddings**: Normalized vector representations with SentenceTransformers / OpenAI integration
 
 ---
 
-## 📁 Project Structure
+## 🏗️ System Architecture
+
+```
+                                  +---------------------------------------+
+                                  |         User Web Browser (SPA)        |
+                                  |    https://nexa-docs.vercel.app/      |
+                                  +-------------------+-------------------+
+                                                      |
+                                                      | HTTPS (REST / SSE Stream)
+                                                      v
+                                  +---------------------------------------+
+                                  |      FastAPI ASGI Backend Server      |
+                                  |      (Deployment planned on Render)   |
+                                  +---------+-------------------+---------+
+                                            |                   |
+                     +----------------------+                   +-----------------------+
+                     |                                                                  |
+                     v                                                                  v
++---------------------------------------+                              +---------------------------------------+
+|        PostgreSQL Database            |                              |        FAISS Vector Storage           |
+|---------------------------------------|                              |---------------------------------------|
+| - users                               |                              | - uploads/indices/{doc_id}.faiss      |
+| - documents                           |                              | - uploads/indices/{doc_id}_chunks.json|
+| - chat_history                        |                              | - Inner Product (IP) Similarity       |
+| - insights                            |                              | - Persistent across Server Restarts   |
++---------------------------------------+                              +---------------------------------------+
+                     ^                                                                  ^
+                     |                                                                  |
+                     +----------------------+                   +-----------------------+
+                                            |                   |
+                                  +---------+-------------------+---------+
+                                  |         RAG Intelligence Engine       |
+                                  |---------------------------------------|
+                                  | 1. PyPDF Text Layer Extraction        |
+                                  | 2. Recursive Overlapping Chunking     |
+                                  | 3. Normalized Vector Embedding        |
+                                  | 4. Context Synthesis & Citations      |
+                                  | 5. Token Streaming Generator (SSE)    |
+                                  +---------------------------------------+
+```
+
+---
+
+## 📁 Repository Structure
 
 ```
 NexaDocs/
-├── frontend/                 # React + Vite + Tailwind CSS + Framer Motion + Zustand
+├── frontend/                 # React 19 + Vite + Tailwind CSS SPA
 │   ├── src/
-│   │   ├── components/       # Sidebar, Header, DocumentCard, UploadModal, ToastContainer
-│   │   ├── pages/            # LandingPage, AuthPages, Dashboard, DocumentLibrary, AIWorkspace, Profile
+│   │   ├── components/       # Layout, Sidebar, Header, DocumentCard, UploadModal, ToastContainer
+│   │   ├── pages/            # LandingPage, AuthPages, Dashboard, DocumentLibrary, AIWorkspace, InsightsPage, ReportsPage, ProfilePage
 │   │   ├── store/            # useAuthStore, useDocStore, useChatStore, useToastStore
-│   │   ├── services/         # Axios client with JWT interceptor
-│   │   └── App.jsx           # React Router v6
-│   └── package.json
-├── backend/                  # FastAPI + SQLAlchemy + JWT + FAISS RAG Engine
+│   │   ├── services/         # Axios API client with JWT interceptor
+│   │   └── App.jsx           # React Router DOM v7 route definitions
+│   ├── vercel.json           # Vercel SPA rewrite configuration
+│   ├── package.json
+│   └── vite.config.js
+├── backend/                  # FastAPI + SQLAlchemy + PostgreSQL + FAISS RAG Engine
 │   ├── app/
-│   │   ├── api/              # auth, users, documents, ai endpoints
-│   │   ├── core/             # config, security (JWT/bcrypt), database
-│   │   ├── models/           # SQLAlchemy models (User, Document, ChatHistory, Insight)
-│   │   ├── schemas/          # Pydantic validation schemas
+│   │   ├── api/              # auth, users, documents, ai endpoints (mounted on /api/v1 and /api)
+│   │   ├── core/             # config, security (JWT/bcrypt), database engine
+│   │   ├── models/           # User, Document, ChatHistory, Insight SQLAlchemy models
+│   │   ├── schemas/          # Pydantic request/response schemas
 │   │   └── services/         # pdf_service, embedding_service, rag_service, storage_service
-│   ├── uploads/              # Local PDF storage directory
+│   ├── uploads/              # Local storage for PDF files and FAISS indices (gitignored)
+│   ├── test_backend.py       # 13-step automated backend test suite
 │   ├── requirements.txt
-│   └── render.yaml
-├── docker-compose.yml        # PostgreSQL + FastAPI + React Vite orchestrator
-├── .env.example              # Environment variables template
+│   └── render.yaml           # Render service specification
+├── docker-compose.yml        # PostgreSQL 15 + FastAPI + React Vite container orchestration
+├── render.yaml               # Root Render Blueprint specification (planned deployment)
+├── .env.example              # Environment template
 └── README.md
 ```
 
 ---
 
-## 🚀 Local Installation & Setup
+## 🔑 Environment Configuration
 
-### 1. Backend Setup (FastAPI)
+### Backend (`backend/.env`)
+
+```env
+# Database Connection (PostgreSQL)
+DATABASE_URL=postgresql://nexadocs_user:securepassword@localhost:5432/nexadocs_db
+
+# JWT Security
+JWT_SECRET=your-secure-random-64-character-secret
+
+# AI LLM Provider Key (Optional: enable for OpenAI GPT synthesis)
+OPENAI_API_KEY=
+
+# Storage Provider (LOCAL, S3, CLOUDINARY)
+STORAGE_TYPE=LOCAL
+ENVIRONMENT=development
+```
+
+### Frontend (`frontend/.env`)
+
+```env
+# Target Backend API URL
+VITE_API_URL=http://localhost:8000/api/v1
+```
+
+---
+
+## 🚀 Local Development Setup
+
+### Prerequisites
+- **Python**: 3.10, 3.11, or 3.12+
+- **Node.js**: v18+ (tested on Node v20/v24) & npm
+- **PostgreSQL**: Version 14+ (tested on PostgreSQL 18.4)
+
+### 1. Database Setup
+Ensure PostgreSQL is running and create the user and database:
+```sql
+CREATE USER nexadocs_user WITH PASSWORD 'securepassword';
+CREATE DATABASE nexadocs_db OWNER nexadocs_user;
+GRANT ALL ON SCHEMA public TO nexadocs_user;
+```
+
+### 2. Backend Setup
 
 ```bash
 cd backend
 
-# Create virtual environment
+# Create and activate virtual environment
 python -m venv venv
-# On Windows: venv\Scripts\activate | On macOS/Linux: source venv/bin/activate
+# Windows:
+venv\Scripts\activate
+# macOS/Linux:
+source venv/bin/activate
 
-# Install requirements
+# Install dependencies
 pip install -r requirements.txt
 
-# Run automated backend test suite
+# Create .env from template
+cp .env.example .env
+
+# Run automated verification test suite
 python test_backend.py
 
-# Launch FastAPI development server
+# Start FastAPI development server
 uvicorn app.main:app --reload --port 8000
 ```
-Interactive Swagger Docs: `http://localhost:8000/docs`
+Interactive API Documentation:
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
 
-### 2. Frontend Setup (React + Vite)
+### 3. Frontend Setup
 
 ```bash
 cd frontend
 
-# Install Node dependencies
+# Install packages
 npm install
 
-# Test production build
+# Create .env
+echo "VITE_API_URL=http://localhost:8000/api/v1" > .env
+
+# Run production build check
 npm run build
 
 # Start Vite development server
-npm run dev -- --port 5173
+npm run dev
 ```
-NexaDocs Web App: `http://localhost:5173`
+Access the application at `http://localhost:5173`.
 
----
+### 4. Running with Docker Compose
 
-## 🔑 Environment Setup
+To launch the entire stack (PostgreSQL, FastAPI backend, and React frontend) using Docker:
 
-Create a `.env` file from `.env.example`:
-
-```env
-# Database Configuration
-DATABASE_URL=postgresql://nexadocs_user:securepassword@localhost:5432/nexadocs_db
-
-# JWT Security (Generate with: openssl rand -hex 32)
-JWT_SECRET=<generate-secure-random-64-character-secret>
-
-# AI LLM Provider Key
-OPENAI_API_KEY=sk-your-openai-api-key-here
-
-# Cloud File Storage (LOCAL, S3, CLOUDINARY)
-STORAGE_PROVIDER=LOCAL
+```bash
+docker-compose up --build
 ```
 
 ---
 
-## 🔌 API Documentation
+## 🔌 API Endpoints Summary
+
+Both `/api/v1` and legacy `/api` routes are supported for full backward compatibility:
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `POST` | `/api/v1/auth/register` | Register account & return JWT |
-| `POST` | `/api/v1/auth/login` | Authenticate & return JWT |
-| `GET` | `/api/v1/auth/me` | Return authenticated user details |
-| `POST` | `/api/v1/documents/upload` | Upload PDF file & trigger FAISS indexing |
-| `GET` | `/api/v1/documents` | List user documents |
-| `DELETE` | `/api/v1/documents/{id}` | Delete document & vector index |
-| `POST` | `/api/v1/ai/chat` | RAG context search & answer with page citations |
+| `GET` | `/health` or `/api/v1/health` | Service health status check |
+| `POST` | `/api/v1/auth/register` | Register new user & issue JWT |
+| `POST` | `/api/v1/auth/login` | Authenticate credentials & return JWT |
+| `GET` | `/api/v1/auth/me` | Retrieve authenticated user profile |
+| `PUT` | `/api/v1/users/profile` | Update profile attributes (name, role, plan) |
+| `POST` | `/api/v1/documents/upload` | Upload PDF, parse text, chunk, and index in FAISS |
+| `GET` | `/api/v1/documents` | List user documents with summaries and topics |
+| `GET` | `/api/v1/documents/{id}` | Get document metadata and insights |
+| `DELETE` | `/api/v1/documents/{id}` | Delete document, PDF file, and FAISS vector index |
+| `POST` | `/api/v1/ai/chat` | Query document using RAG retrieval with source citations |
 | `POST` | `/api/v1/ai/chat/stream` | Server-Sent Events (SSE) progressive token stream |
-| `GET` | `/api/v1/ai/insights/{doc_id}` | Fetch summary, topics, and entity extractions |
+| `GET` | `/api/v1/ai/chat/history/{doc_id}` | Retrieve stored conversation history for a document |
+| `GET` | `/api/v1/ai/insights/{doc_id}` | Retrieve extracted topics, entities, and highlights |
 
 ---
 
-## ☁️ Deployment Guide
+## ☁️ Production Deployment Instructions
 
-### Backend Deployment (Render)
-1. Push codebase to GitHub repository: `https://github.com/VenkataKarthikeya-eng/NexaDocs`.
-2. Connect repository in [Render Dashboard](https://dashboard.render.com/). Render will detect `backend/render.yaml` and deploy both the **Free Web Service** and **Free PostgreSQL Database**.
+### Frontend (Live on Vercel)
+- **Live URL**: [https://nexa-docs.vercel.app/](https://nexa-docs.vercel.app/)
+- **Configuration**: `frontend/vercel.json` provides single-page application (SPA) routing rewrites.
+- **Environment Variable**: Configure `VITE_API_URL` in Vercel project settings pointing to the deployed backend URL.
 
-### Frontend Deployment (Vercel)
-1. Import `frontend/` directory into Vercel.
-2. Set Environment Variable `VITE_API_URL` to your Render API URL.
-3. Vercel will build and host using `frontend/vercel.json` SPA rewrite rules.
+### Backend (Deployment Planned on Render)
+> **Note**: Backend deployment on Render is planned and configured via `render.yaml`. It has not yet been executed in production.
+
+To deploy on Render:
+1. Push the repository to GitHub.
+2. In the [Render Dashboard](https://dashboard.render.com/), select **New > Blueprint**.
+3. Connect the repository. Render will automatically parse `render.yaml` to provision:
+   - **`nexadocs-api`**: Python web service (`uvicorn app.main:app --host 0.0.0.0 --port $PORT`).
+   - **`nexadocs-db`**: Managed PostgreSQL database instance.
+4. Render will automatically link the database connection string via `DATABASE_URL` and generate a cryptographically secure `JWT_SECRET`.
+5. Update `VITE_API_URL` in the Vercel project settings with the generated Render backend URL.
 
 ---
 
-## 📸 Screenshots
-
-1. **Landing Page**: Enterprise hero section, trust indicators, and live product sandbox widget.
-2. **Dashboard**: Storage meter, metrics cards, Recharts weekly document activity bar chart, and AI vector token trend area graph.
-3. **3-Panel AI Workspace**: Document selector tree, center SSE streaming chat with exact source page citation badges (`📄 Page 4 [94% Match]`), and right automated insights panel.
-4. **Document Library**: Grid/List view switcher, category tabs, and PDF dropzone modal.
-
----
-
-## 👤 Developer
+## 👤 Developer & Maintainer
 
 **CHERUKURI VENKATA KARTHIKEYA**
 - **Email**: [venkatakarthikeya2005@gmail.com](mailto:venkatakarthikeya2005@gmail.com)

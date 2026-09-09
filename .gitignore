@@ -1,8 +1,10 @@
 # Environment variables
 .env
-.env.local
-.env.production.local
-.env.development.local
+*.env
+.env.*
+!.env.example
+!backend/.env.example
+!frontend/.env.production
 
 # Node dependencies & builds
 node_modules/
@@ -19,12 +21,21 @@ __pycache__/
 *.pyd
 .pytest_cache/
 
-# Databases & local uploads
+# Databases
 *.db
 *.sqlite3
 nexadocs.db
-uploads/*
-!uploads/.gitkeep
+
+# Uploads & Storage
+uploads/
+backend/uploads/
+**/uploads/**
+
+# FAISS Vector Index & Chunk files
+*.faiss
+*_chunks.json
+indices/
+**/indices/**
 
 # IDE & OS files
 .DS_Store

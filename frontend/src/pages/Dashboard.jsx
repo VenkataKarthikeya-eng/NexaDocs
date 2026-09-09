@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FileText,
@@ -44,9 +44,13 @@ const ACTIVITY_DATA = [
 
 export default function Dashboard() {
   const { user } = useAuthStore();
-  const { documents, setActiveDoc, isUploading, uploadProgress } = useDocStore();
+  const { documents, setActiveDoc, isUploading, uploadProgress, fetchDocuments } = useDocStore();
   const [showUploadModal, setShowUploadModal] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
 
   const totalPages = documents.reduce((sum, d) => sum + (d.pageCount || 0), 0);
   const totalChunks = documents.reduce((sum, d) => sum + (d.chunkCount || 0), 0);

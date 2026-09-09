@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FileText,
@@ -28,8 +28,13 @@ export default function DocumentLibrary() {
     categoryFilter,
     setCategoryFilter,
     getFilteredDocuments,
-    documents
+    documents,
+    fetchDocuments
   } = useDocStore();
+
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
 
   const filteredDocs = getFilteredDocuments();
   const categories = ['All', 'Finance', 'Engineering', 'Legal & Compliance', 'Research'];

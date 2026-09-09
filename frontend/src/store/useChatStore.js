@@ -2,45 +2,62 @@ import { create } from 'zustand';
 import api from '../services/api';
 import { useDocStore } from './useDocStore';
 
-const INITIAL_MESSAGES = {
-  'doc-1': [
-    {
-      id: 'msg-1',
-      sender: 'assistant',
-      text: "Hello Sarah! I've analyzed **Q3 Enterprise Financial Analysis & Forecast.pdf**. Key highlights include a **24% YoY revenue growth** to $42.5M and an EBITDA margin of 31.2%. What specific metrics or sections would you like to explore?",
-      timestamp: '10:14 AM',
-      citations: [{ page: 1, section: 'Executive Summary' }, { page: 4, section: 'Financial Metrics' }]
-    }
-  ],
-  'doc-2': [
-    {
-      id: 'msg-2',
-      sender: 'assistant',
-      text: "Welcome! **NexaDocs Technical Blueprint.pdf** is indexed in the vector store with 88 chunks. You can ask me about FAISS search, chunking algorithms, or FastAPI endpoints.",
-      timestamp: '10:20 AM',
-      citations: [{ page: 2, section: 'Architecture Diagram' }]
-    }
-  ]
-};
-
 export const useChatStore = create((set, get) => ({
-  chats: INITIAL_MESSAGES,
+  chats: {},
   isThinking: false,
   activePrompt: '',
 
   getMessagesForDoc: (docId) => {
-    return get().chats[docId] || [
+    const docMessages = get().chats[docId];
+    if (docMessages && docMessages.length > 0) {
+      return docMessages;
+    }
+    const doc = useDocStore.getState().documents.find(d => d.id === docId) || useDocStore.getState().activeDoc;
+    return [
       {
         id: 'msg-init-' + docId,
         sender: 'assistant',
-        text: `Document **${useDocStore.getState().activeDoc?.filename || 'selected file'}** is fully indexed into FAISS vector database. Ask any question to retrieve semantic answers with exact source citations!`,
+        text: `Document **${doc?.filename || doc?.title || 'Selected document'}** is indexed into FAISS vector database. Ask any question to retrieve answers with exact page citations!`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         citations: [{ page: 1, section: 'Document Overview' }]
       }
     ];
   },
 
-  askQuestion: async (docId, questionText) => {
+  loadChatHistory: async (docId) => {
+    if (!docId) return;
+    try {
+      const res = await api.get(`/ai/chat/history/${docId}`);
+      if (res && res.data && res.data.length > 0) {
+        const formatted = [];
+        res.data.forEach((item) => {
+          formatted.push({
+            id: 'user-' + item.id,
+            sender: 'user',
+            text: item.question,
+            timestamp: item.timestamp
+          });
+          formatted.push({
+            id: 'bot-' + item.id,
+            sender: 'assistant',
+            text: item.answer,
+            timestamp: item.timestamp,
+            citations: item.sources || []
+          });
+        });
+        set((state) => ({
+          chats: {
+            ...state.chats,
+            [docId]: formatted
+          }
+        }));
+      }
+    } catch (e) {
+      // History endpoint optional
+    }
+  },
+
+  askQuestionStream: async (docId, questionText, abortSignal) => {
     if (!questionText.trim()) return;
 
     const userMsg = {
@@ -50,80 +67,142 @@ export const useChatStore = create((set, get) => ({
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
-    // Append user message immediately
+    const botMsgId = 'msg-bot-' + Date.now();
+    const botMsg = {
+      id: botMsgId,
+      sender: 'assistant',
+      text: '',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      citations: []
+    };
+
+    // Add user message & empty placeholder bot message
     set((state) => {
       const currentDocMessages = state.chats[docId] || [];
       return {
         chats: {
           ...state.chats,
-          [docId]: [...currentDocMessages, userMsg]
+          [docId]: [...currentDocMessages, userMsg, botMsg]
         },
         isThinking: true
       };
     });
 
+    const token = localStorage.getItem('nexadocs_token');
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+
     try {
-      // Try backend AI API if available
-      const response = await api.post('/ai/chat', {
-        document_id: docId,
-        question: questionText
-      }).catch(() => null);
+      const response = await fetch(`${apiBase}/ai/chat/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify({
+          document_id: docId,
+          question: questionText
+        }),
+        signal: abortSignal
+      });
 
-      let botMsg;
-      if (response && response.data) {
-        botMsg = {
-          id: 'msg-bot-' + Date.now(),
-          sender: 'assistant',
-          text: response.data.answer,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          citations: response.data.sources || [{ page: 1, section: 'Retrieved Context' }]
-        };
-      } else {
-        // Fallback RAG Intelligence Engine simulation for instant zero-lag frontend demo
-        await new Promise((r) => setTimeout(r, 900));
-
-        const activeDoc = useDocStore.getState().activeDoc;
-        const q = questionText.toLowerCase();
-
-        let answer = '';
-        let citations = [];
-
-        if (q.includes('revenue') || q.includes('financial') || q.includes('profit') || q.includes('margin') || q.includes('growth')) {
-          answer = `Based on section **Financial Audit (Page 4-6)** of *${activeDoc?.filename}*, Q3 revenue reached **$42.5 Million**, marking a **24% Year-over-Year (YoY)** increase. EBITDA margin remained robust at **31.2%**, driven by operational efficiencies in cloud infrastructure and AI processing.`;
-          citations = [{ page: 4, section: 'Q3 Earnings Overview' }, { page: 6, section: 'Operating Margins' }];
-        } else if (q.includes('architecture') || q.includes('faiss') || q.includes('rag') || q.includes('vector') || q.includes('technical')) {
-          answer = `According to *${activeDoc?.filename}*, the RAG pipeline splits documents into **500-character recursive chunks with 100-character overlaps**. Vectors are indexed using **FAISS (Facebook AI Similarity Search)** with L2 distance calculation, delivering context retrieval in under **180ms**.`;
-          citations = [{ page: 2, section: 'Vector DB Pipeline' }, { page: 8, section: 'RAG Retrieval Benchmark' }];
-        } else if (q.includes('security') || q.includes('privacy') || q.includes('compliance') || q.includes('soc2') || q.includes('encrypt')) {
-          answer = `The security policy in *${activeDoc?.filename}* confirms **SOC2 Type II compliance**, end-to-end **AES-256 encryption at rest**, and **TLS 1.3 in transit**. Furthermore, tenant documents are fully isolated and **never used for training public foundational LLM models**.`;
-          citations = [{ page: 3, section: 'Security SLA' }, { page: 7, section: 'Tenant Isolation Rules' }];
-        } else {
-          answer = `I analyzed the embedded vector chunks for *${activeDoc?.filename}* regarding your query: **"${questionText}"**.\n\nSummary excerpt from vector index: The document emphasizes high-performance document workflow automation, structured data extraction, and compliant data handling protocols.`;
-          citations = [{ page: 1, section: 'Overview' }, { page: Math.floor(Math.random() * 5) + 2, section: 'Key Findings' }];
-        }
-
-        botMsg = {
-          id: 'msg-bot-' + Date.now(),
-          sender: 'assistant',
-          text: answer,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          citations: citations
-        };
+      if (!response.ok) {
+        throw new Error(`Streaming failed: HTTP ${response.status}`);
       }
 
-      set((state) => {
-        const currentDocMessages = state.chats[docId] || [];
-        return {
-          chats: {
-            ...state.chats,
-            [docId]: [...currentDocMessages, botMsg]
-          },
-          isThinking: false
-        };
-      });
+      set({ isThinking: false });
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+      let accumulatedText = '';
+      let citations = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('data:')) {
+            try {
+              const data = JSON.parse(trimmed.replace(/^data:\s*/, ''));
+              if (data.type === 'start') {
+                citations = data.sources || [];
+                set((state) => {
+                  const msgs = (state.chats[docId] || []).map((m) =>
+                    m.id === botMsgId ? { ...m, citations } : m
+                  );
+                  return { chats: { ...state.chats, [docId]: msgs } };
+                });
+              } else if (data.type === 'token') {
+                accumulatedText += data.text || '';
+                set((state) => {
+                  const msgs = (state.chats[docId] || []).map((m) =>
+                    m.id === botMsgId ? { ...m, text: accumulatedText } : m
+                  );
+                  return { chats: { ...state.chats, [docId]: msgs } };
+                });
+              }
+            } catch (err) {
+              console.warn("SSE chunk parse warning:", err);
+            }
+          }
+        }
+      }
+      return { success: true };
     } catch (err) {
+      if (err.name === 'AbortError') {
+        console.log("Stream generation stopped by user.");
+        return { success: false, aborted: true };
+      }
+
+      // Fallback to static POST /ai/chat if stream interrupted
+      try {
+        const fallbackRes = await api.post('/ai/chat', {
+          document_id: docId,
+          question: questionText
+        });
+        if (fallbackRes && fallbackRes.data) {
+          set((state) => {
+            const msgs = (state.chats[docId] || []).map((m) =>
+              m.id === botMsgId
+                ? {
+                    ...m,
+                    text: fallbackRes.data.answer,
+                    citations: fallbackRes.data.sources || []
+                  }
+                : m
+            );
+            return { chats: { ...state.chats, [docId]: msgs }, isThinking: false };
+          });
+          return { success: true };
+        }
+      } catch (fallbackErr) {
+        set((state) => {
+          const msgs = (state.chats[docId] || []).map((m) =>
+            m.id === botMsgId
+              ? {
+                  ...m,
+                  text: `Error generating response: ${err.message || "Failed to communicate with AI engine."}`,
+                  citations: []
+                }
+              : m
+          );
+          return { chats: { ...state.chats, [docId]: msgs }, isThinking: false };
+        });
+        return { success: false, error: err.message };
+      }
+    } finally {
       set({ isThinking: false });
     }
+  },
+
+  askQuestion: async (docId, questionText) => {
+    return get().askQuestionStream(docId, questionText, null);
   },
 
   clearChat: (docId) => {
