@@ -40,18 +40,38 @@ class RAGService:
                 except Exception:
                     pass
 
-                system_instruction = (
-                    "You are NexaDocs AI, an enterprise AI document assistant. "
-                    "Answer the user's question accurately, concisely, and professionally based strictly on the provided context excerpts from the document. "
-                    "Always reference the relevant section or page information when possible. "
-                    "If the answer cannot be found in the context, state that clearly and summarize the closest related facts from the context."
-                )
+                context = context_str.strip() if context_str.strip() else "No context retrieved from the document."
                 prompt = (
-                    f"{system_instruction}\n\n"
-                    f"Document Name: {filename}\n"
-                    f"Document Retrieved Context:\n{context_str}\n\n"
-                    f"User Question: {question}\n\n"
-                    f"Answer:"
+                    "You are NexaDocs AI, a document question-answering assistant.\n\n"
+                    "Your job is to answer user questions ONLY using the retrieved document context provided by the RAG pipeline.\n\n"
+                    "STRICT RULES:\n\n"
+                    "1. The uploaded document context is the only source of truth.\n"
+                    "2. Never add information that is not present in the retrieved context.\n"
+                    "3. Never hallucinate:\n"
+                    "   - certifications\n"
+                    "   - compliance standards\n"
+                    "   - security claims\n"
+                    "   - financial metrics\n"
+                    "   - performance metrics\n"
+                    "   - SLAs\n"
+                    "   - companies\n"
+                    "   - technologies\n"
+                    "   - achievements\n\n"
+                    "4. For technology-related questions:\n"
+                    "   - Extract and list only the exact technologies mentioned in the document.\n\n"
+                    "5. For summary requests:\n"
+                    "   - Summarize the actual uploaded document.\n"
+                    "   - Include the person's/project/document details only if present in the context.\n\n"
+                    "6. For entity extraction:\n"
+                    "   - Extract real entities only from the document.\n"
+                    "   - Do not generate generic enterprise tags.\n\n"
+                    "7. If the requested information is not available in the document, respond:\n"
+                    '   "Not mentioned in the document."\n\n'
+                    "8. Always prefer factual accuracy over completing the answer.\n\n"
+                    "9. Preserve source citations/page references when they are available.\n\n"
+                    f"Retrieved Context:\n{context}\n\n"
+                    f"User Question:\n{question}\n\n"
+                    "Generate a concise, factual answer based only on the retrieved context."
                 )
 
                 model_name = settings.GEMINI_MODEL or "gemini-flash-latest"
