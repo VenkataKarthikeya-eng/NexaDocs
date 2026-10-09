@@ -9,8 +9,8 @@ export default function AuthPages() {
   const isRegisterPage = location.pathname.includes('register');
 
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('sarah.j@enterprise.com');
-  const [password, setPassword] = useState('••••••••••••');
+  const [email, setEmail] = useState(isRegisterPage ? '' : 'demo@nexadocs.com');
+  const [password, setPassword] = useState(isRegisterPage ? '' : 'Demo@123');
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState('');
 
