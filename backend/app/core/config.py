@@ -11,15 +11,32 @@ class Settings(BaseSettings):
     
     # Secure JWT Secret Management
     JWT_SECRET: str = "nexadocs-enterprise-production-secure-jwt-key-2026-v1"
+    SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
 
     # Database: Render PostgreSQL Production & Local SQLite Fallback
     DATABASE_URL: str = ""
 
-    # Storage & Uploads Configuration
-    STORAGE_TYPE: str = "LOCAL" # LOCAL, S3, CLOUDINARY
+    # Storage & Uploads Configuration (Local vs Neon S3-compatible Object Storage)
+    STORAGE_TYPE: str = "LOCAL" # LOCAL, S3
     UPLOAD_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
+    FAISS_INDEX_PATH: str = ""
+    DEBUG: bool = False
+
+    # Neon / S3-Compatible Object Storage
+    S3_ENDPOINT_URL: str = ""
+    S3_BUCKET_NAME: str = "nexadocs-files"
+    S3_REGION: str = "us-east-2"
+    S3_ACCESS_KEY_ID: str = ""
+    S3_SECRET_ACCESS_KEY: str = ""
+    S3_PRESIGNED_EXPIRATION_SECONDS: int = 3600
+
+    # Vector Storage & Remote Embedding Configuration
+    VECTOR_STORAGE_TYPE: str = "POSTGRES" # POSTGRES, FAISS
+    EMBEDDING_PROVIDER: str = "GEMINI"    # GEMINI (Production lightweight, <80MB RAM), LOCAL (SentenceTransformers)
+    GEMINI_EMBEDDING_MODEL: str = "models/gemini-embedding-001"
+    EMBEDDING_DIMENSION: int = 768
 
     # AI Config (Google Gemini Integration)
     GEMINI_API_KEY: str = ""
@@ -46,17 +63,37 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+# Support SECRET_KEY alias for JWT_SECRET
+if settings.SECRET_KEY:
+    settings.JWT_SECRET = settings.SECRET_KEY
+
 # 1. Fallback JWT secret ensure at least 32 chars
 if not settings.JWT_SECRET or len(settings.JWT_SECRET) < 32:
     settings.JWT_SECRET = "nexadocs-enterprise-production-secure-jwt-key-2026-v1"
 
-# 2. Render PostgreSQL URL Normalization (postgres:// -> postgresql://)
+# 2. Render & Neon PostgreSQL URL Normalization (postgres:// -> postgresql://)
 if settings.DATABASE_URL.startswith("postgres://"):
     settings.DATABASE_URL = settings.DATABASE_URL.replace("postgres://", "postgresql://", 1)
+elif settings.DATABASE_URL.startswith("postgres+psycopg://"):
+    settings.DATABASE_URL = settings.DATABASE_URL.replace("postgres+psycopg://", "postgresql+psycopg://", 1)
+elif settings.DATABASE_URL.startswith("postgres+psycopg2://"):
+    settings.DATABASE_URL = settings.DATABASE_URL.replace("postgres+psycopg2://", "postgresql+psycopg2://", 1)
 
 # Default to SQLite for local development only if no DATABASE_URL is provided
 if not settings.DATABASE_URL:
     settings.DATABASE_URL = "sqlite:///./nexadocs.db"
+
+# S3 standard AWS environment variable fallbacks
+if not settings.S3_ENDPOINT_URL and os.environ.get("AWS_ENDPOINT_URL"):
+    settings.S3_ENDPOINT_URL = os.environ["AWS_ENDPOINT_URL"]
+if not settings.S3_ACCESS_KEY_ID and os.environ.get("AWS_ACCESS_KEY_ID"):
+    settings.S3_ACCESS_KEY_ID = os.environ["AWS_ACCESS_KEY_ID"]
+if not settings.S3_SECRET_ACCESS_KEY and os.environ.get("AWS_SECRET_ACCESS_KEY"):
+    settings.S3_SECRET_ACCESS_KEY = os.environ["AWS_SECRET_ACCESS_KEY"]
+if not settings.S3_BUCKET_NAME and os.environ.get("AWS_S3_BUCKET"):
+    settings.S3_BUCKET_NAME = os.environ["AWS_S3_BUCKET"]
+if not settings.S3_REGION and os.environ.get("AWS_REGION"):
+    settings.S3_REGION = os.environ["AWS_REGION"]
 
 # Ensure local upload directory exists
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
