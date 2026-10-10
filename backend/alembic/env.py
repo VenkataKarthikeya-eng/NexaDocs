@@ -22,12 +22,17 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.core.config import settings
 from app.core.database import Base
-from app.models import User, Document, ChatHistory, Insight
+from app.models import User, Document, ChatHistory, Insight, DocumentChunk
 
 target_metadata = Base.metadata
 
-# Set sqlalchemy.url dynamically from settings
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Set sqlalchemy.url dynamically if not explicitly provided or if it's the placeholder
+current_url = config.get_main_option("sqlalchemy.url")
+if not current_url or current_url.startswith("driver://"):
+    target_url = os.environ.get("DATABASE_URL") or settings.DATABASE_URL
+    if target_url.startswith("postgres://"):
+        target_url = target_url.replace("postgres://", "postgresql://", 1)
+    config.set_main_option("sqlalchemy.url", target_url)
 
 
 

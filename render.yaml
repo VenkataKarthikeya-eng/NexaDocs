@@ -12,22 +12,28 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: DATABASE_URL
-        fromDatabase:
-          name: nexadocs-db
-          property: connectionString
+        sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
         value: gemini-flash-lite-latest
+      - key: EMBEDDING_PROVIDER
+        value: GEMINI
+      - key: VECTOR_STORAGE_TYPE
+        value: POSTGRES
       - key: STORAGE_TYPE
-        value: LOCAL
-    disk:
-      name: nexadocs-storage
-      mountPath: /app/uploads
-      sizeGB: 5
-
-databases:
-  - name: nexadocs-db
-    databaseName: nexadocs_db
-    user: nexadocs_user
-    plan: free
+        value: S3
+      - key: S3_BUCKET_NAME
+        value: nexadocs-files
+      - key: S3_REGION
+        value: us-east-2
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        value: '["https://nexa-docs.vercel.app"]'
+      - key: DEBUG
+        value: "False"
