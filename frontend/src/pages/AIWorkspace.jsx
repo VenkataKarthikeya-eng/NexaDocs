@@ -147,34 +147,41 @@ export default function AIWorkspace() {
             </div>
 
             {/* Document Selector List */}
-            <div className="space-y-2 max-h-56 lg:max-h-80 overflow-y-auto pr-1">
-              {filteredDocList.map((doc) => {
-                const isSelected = currentDoc?.id === doc.id;
-                return (
-                  <button
-                    key={doc.id}
-                    onClick={() => setActiveDoc(doc)}
-                    className={`w-full text-left p-3 rounded-xl border text-xs transition-all flex items-start gap-2.5 ${
-                      isSelected
-                        ? 'bg-white border-blue-600 shadow-sm text-slate-900 ring-1 ring-blue-500/20'
-                        : 'bg-white/60 border-slate-200/90 text-slate-600 hover:bg-white hover:border-slate-300'
-                    }`}
-                  >
-                    <FileText className={`w-4 h-4 shrink-0 mt-0.5 ${isSelected ? 'text-blue-600' : 'text-slate-400'}`} />
-                    <div className="min-w-0 flex-1">
-                      <p className={`font-bold truncate ${isSelected ? 'text-blue-900' : 'text-slate-800'}`}>
-                        {doc.title}
-                      </p>
-                      <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-1">
-                        <span>{doc.pageCount} pgs</span>
-                        <span>•</span>
-                        <span>{doc.chunkCount} vector chunks</span>
+            {filteredDocList.length > 0 ? (
+              <div className="space-y-2 max-h-56 lg:max-h-80 overflow-y-auto pr-1">
+                {filteredDocList.map((doc) => {
+                  const isSelected = currentDoc?.id === doc.id;
+                  return (
+                    <button
+                      key={doc.id}
+                      onClick={() => setActiveDoc(doc)}
+                      className={`w-full text-left p-3 rounded-xl border text-xs transition-all flex items-start gap-2.5 ${
+                        isSelected
+                          ? 'bg-white border-blue-600 shadow-sm text-slate-900 ring-1 ring-blue-500/20'
+                          : 'bg-white/60 border-slate-200/90 text-slate-600 hover:bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <FileText className={`w-4 h-4 shrink-0 mt-0.5 ${isSelected ? 'text-blue-600' : 'text-slate-400'}`} />
+                      <div className="min-w-0 flex-1">
+                        <p className={`font-bold truncate ${isSelected ? 'text-blue-900' : 'text-slate-800'}`}>
+                          {doc.title}
+                        </p>
+                        <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-1">
+                          <span>{doc.pageCount} pgs</span>
+                          <span>•</span>
+                          <span>{doc.chunkCount} vector chunks</span>
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8 px-2 text-xs text-slate-400 bg-white/50 rounded-xl border border-dashed border-slate-200">
+                <p className="font-semibold text-slate-600 mb-1">No Documents Available</p>
+                <p className="text-[11px] text-slate-400">Upload a PDF to start asking AI questions.</p>
+              </div>
+            )}
           </div>
 
           {/* Vector Index Metadata Box */}

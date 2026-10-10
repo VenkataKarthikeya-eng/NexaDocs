@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -12,6 +13,7 @@ from app.models.insight import Insight
 from app.schemas.chat import ChatRequest, ChatResponse, AnalyzeRequest, InsightResponse
 from app.services.rag_service import rag_service
 from app.services.insight_service import insight_service
+from app.services.pdf_service import pdf_service
 
 router = APIRouter(prefix="/ai", tags=["AI Engine"])
 
@@ -24,6 +26,12 @@ def ai_chat(
     doc = db.query(Document).filter(Document.id == req.document_id, Document.user_id == current_user.id).first()
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+
+    if doc.status and doc.status.upper() not in ["READY", "READY"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Document is not ready for AI questions (Status: {doc.status})."
+        )
 
     rag_result = rag_service.answer_question(doc.id, doc.filename, req.question)
 
@@ -61,6 +69,12 @@ async def ai_chat_stream(
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
 
+    if doc.status and doc.status.upper() not in ["READY", "READY"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Document is not ready for AI questions (Status: {doc.status})."
+        )
+
     return StreamingResponse(
         rag_service.stream_answer(doc.id, doc.filename, req.question, user_id=current_user.id),
         media_type="text/event-stream"
@@ -72,6 +86,10 @@ def get_chat_history(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    doc = db.query(Document).filter(Document.id == doc_id, Document.user_id == current_user.id).first()
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+
     chats = db.query(ChatHistory).filter(
         ChatHistory.document_id == doc_id,
         ChatHistory.user_id == current_user.id
@@ -101,13 +119,23 @@ def analyze_document(
 
     insight = db.query(Insight).filter(Insight.document_id == doc.id).first()
     if not insight:
-        extracted = insight_service.generate_document_insights(doc.filename, "Extracted text content.", [])
+        full_text = ""
+        pages = []
+        if doc.file_path and os.path.exists(doc.file_path):
+            try:
+                extracted = pdf_service.extract_text_and_pages(doc.file_path)
+                full_text = extracted["full_text"]
+                pages = extracted["pages"]
+            except Exception:
+                pass
+
+        extracted_insights = insight_service.generate_document_insights(doc.filename, full_text, pages)
         insight = Insight(
             document_id=doc.id,
-            summary=extracted["summary"],
-            topics=extracted["topics"],
-            entities=extracted["entities"],
-            key_takeaways=extracted["key_takeaways"]
+            summary=extracted_insights["summary"],
+            topics=extracted_insights["topics"],
+            entities=extracted_insights["entities"],
+            key_takeaways=extracted_insights["key_takeaways"]
         )
         db.add(insight)
         db.commit()

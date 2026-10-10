@@ -23,7 +23,8 @@ class Settings(BaseSettings):
 
     # AI Config (Google Gemini Integration)
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-flash-latest"
+    GEMINI_MODEL: str = "gemini-flash-lite-latest"
+    GEMINI_FALLBACK_MODELS: list = ["gemini-3.5-flash", "gemini-flash-latest"]
     OPENAI_API_KEY: str = ""
 
     # CORS Allowed Origins
@@ -31,6 +32,8 @@ class Settings(BaseSettings):
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://nexa-docs.vercel.app",
         "https://nexadocs.vercel.app"
     ]
 
@@ -51,9 +54,10 @@ if not settings.JWT_SECRET or len(settings.JWT_SECRET) < 32:
 if settings.DATABASE_URL.startswith("postgres://"):
     settings.DATABASE_URL = settings.DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# Default to SQLite for local development if no DATABASE_URL is provided
+# Default to SQLite for local development only if no DATABASE_URL is provided
 if not settings.DATABASE_URL:
     settings.DATABASE_URL = "sqlite:///./nexadocs.db"
 
 # Ensure local upload directory exists
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+

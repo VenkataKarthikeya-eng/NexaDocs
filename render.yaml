@@ -4,7 +4,7 @@ services:
     env: python
     rootDir: backend
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && python -m alembic upgrade head
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
@@ -18,9 +18,13 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
-        value: gemini-flash-latest
+        value: gemini-flash-lite-latest
       - key: STORAGE_TYPE
         value: LOCAL
+    disk:
+      name: nexadocs-storage
+      mountPath: /app/uploads
+      sizeGB: 5
 
 databases:
   - name: nexadocs-db

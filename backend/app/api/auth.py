@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -57,7 +57,10 @@ def login(user_in: UserLogin, db: Session = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user.last_login = datetime.utcnow()
+    user.last_login = datetime.now(timezone.utc)
+    # Seamless migration: upgrade legacy bcrypt hashes to modern Argon2id
+    if user.password_hash.startswith("$2"):
+        user.password_hash = get_password_hash(user_in.password)
     db.commit()
 
     access_token = create_access_token(data={"sub": user.id})

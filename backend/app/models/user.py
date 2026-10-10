@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -13,8 +13,8 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     role = Column(String, default="Enterprise Member")
     plan = Column(String, default="Enterprise Pro")
-    created_at = Column(DateTime, default=datetime.utcnow)
-    last_login = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    last_login = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     documents = relationship("Document", back_populates="owner", cascade="all, delete-orphan")
     chats = relationship("ChatHistory", back_populates="user", cascade="all, delete-orphan")

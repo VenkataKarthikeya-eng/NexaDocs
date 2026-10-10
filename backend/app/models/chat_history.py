@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Text, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -13,7 +13,7 @@ class ChatHistory(Base):
     question = Column(Text, nullable=False)
     answer = Column(Text, nullable=False)
     sources = Column(JSON, default=list)  # List of citations [{page: 1, section: "Intro"}]
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="chats")
     document = relationship("Document", back_populates="chats")

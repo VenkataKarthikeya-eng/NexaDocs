@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Text, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -13,6 +13,6 @@ class Insight(Base):
     topics = Column(JSON, default=list)        # List of topic tags ["#EBITDA", "#CapEx"]
     entities = Column(JSON, default=list)      # Extracted entities [{name: "Deloitte", type: "Org"}]
     key_takeaways = Column(JSON, default=list) # List of key highlights [{page: 1, text: "..."}]
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     document = relationship("Document", back_populates="insight")

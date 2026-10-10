@@ -1,6 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import bcrypt
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError, InvalidHashError
 from jose import jwt, JWTError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -10,15 +12,28 @@ from app.core.config import settings
 from app.core.database import get_db
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
+_hasher = PasswordHasher()
 
 def get_password_hash(password: str) -> str:
-    """Hashes password using bcrypt directly (truncating to 72 bytes as per bcrypt spec)."""
-    pwd_bytes = password.encode('utf-8')[:72]
-    salt = bcrypt.gensalt()
-    return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
+    """Hashes password using Argon2id (industry standard memory-hard cipher)."""
+    return _hasher.hash(password)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verifies plain password against hashed password."""
+    """
+    Verifies plain password against hashed password.
+    Supports both new Argon2id hashes and legacy bcrypt hashes safely.
+    """
+    if not hashed_password or not plain_password:
+        return False
+    # Check if Argon2id hash
+    if hashed_password.startswith("$argon2"):
+        try:
+            return _hasher.verify(hashed_password, plain_password)
+        except (VerifyMismatchError, InvalidHashError):
+            return False
+        except Exception:
+            return False
+    # Fallback to bcrypt for existing user accounts
     try:
         pwd_bytes = plain_password.encode('utf-8')[:72]
         hash_bytes = hashed_password.encode('utf-8')
@@ -29,9 +44,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.ALGORITHM)
     return encoded_jwt

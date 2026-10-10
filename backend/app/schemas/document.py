@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional, Any
 from datetime import datetime
 
@@ -20,6 +20,7 @@ class DocumentResponse(BaseModel):
     chunkCount: int
     status: str
     processingProgress: int = 100
+    errorMessage: Optional[str] = None
     category: str
     createdAt: str
     summary: Optional[str] = None
@@ -27,8 +28,8 @@ class DocumentResponse(BaseModel):
     entities: List[EntitySchema] = []
     highlights: List[HighlightSchema] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
 
 class DocumentListResponse(BaseModel):
     documents: List[DocumentResponse]

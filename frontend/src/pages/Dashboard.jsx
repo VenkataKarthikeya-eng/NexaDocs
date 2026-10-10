@@ -65,7 +65,7 @@ export default function Dashboard() {
             <span>NexaDocs FAISS Vector Engine Active</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-            Welcome back, {user?.name || 'Sarah'}!
+            Welcome back, {user?.name || 'Explorer'}!
           </h1>
           <p className="text-blue-100 text-xs sm:text-sm max-w-xl font-normal">
             Your document intelligence pipeline has processed {documents.length} PDF files with {totalChunks} vector chunks. Explore insights or launch a RAG conversation below.

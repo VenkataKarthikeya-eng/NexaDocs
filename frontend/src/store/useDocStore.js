@@ -72,8 +72,9 @@ const SAMPLE_DOCUMENTS = [
 ];
 
 export const useDocStore = create((set, get) => ({
-  documents: SAMPLE_DOCUMENTS,
-  activeDoc: SAMPLE_DOCUMENTS[0],
+  documents: [],
+  activeDoc: null,
+  isLoadingDocs: false,
   searchQuery: '',
   categoryFilter: 'All',
   isUploading: false,
@@ -85,6 +86,7 @@ export const useDocStore = create((set, get) => ({
   setActiveDoc: (doc) => set({ activeDoc: doc }),
 
   fetchDocuments: async () => {
+    set({ isLoadingDocs: true });
     try {
       const response = await api.get('/documents');
       if (response && response.data) {
@@ -92,11 +94,13 @@ export const useDocStore = create((set, get) => ({
         set((state) => ({
           documents: docs,
           activeDoc: docs.length > 0 ? (docs.find(d => d.id === state.activeDoc?.id) || docs[0]) : null,
+          isLoadingDocs: false,
           error: null
         }));
       }
     } catch (e) {
-      console.warn("Backend fetch error, preserving current documents:", e);
+      console.warn("Backend fetch error:", e);
+      set({ isLoadingDocs: false });
     }
   },
 

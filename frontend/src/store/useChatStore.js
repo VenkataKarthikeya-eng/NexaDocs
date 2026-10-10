@@ -19,7 +19,7 @@ export const useChatStore = create((set, get) => ({
         sender: 'assistant',
         text: `Document **${doc?.filename || doc?.title || 'Selected document'}** is indexed into FAISS vector database. Ask any question to retrieve answers with exact page citations!`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        citations: [{ page: 1, section: 'Document Overview' }]
+        citations: []
       }
     ];
   },

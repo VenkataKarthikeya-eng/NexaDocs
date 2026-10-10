@@ -1,7 +1,7 @@
 import os
 import uuid
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -26,37 +26,78 @@ async def upload_document(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Validate PDF file format
+    # Validate PDF file extension
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only PDF documents are supported."
+            detail="Only PDF documents (.pdf) are supported."
         )
 
     doc_id = str(uuid.uuid4())
-    safe_filename = f"{doc_id}_{file.filename}"
 
     # Read contents & compute size
     contents = await file.read()
+    if not contents or len(contents) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is empty (0 bytes)."
+        )
+
     file_size_mb = round(len(contents) / (1024 * 1024), 2)
     file_size_str = f"{file_size_mb} MB" if file_size_mb >= 0.01 else "< 0.01 MB"
 
-    # Save via StorageService (Supports Local Disk and Cloud S3/Cloudinary for Render production)
-    file_path, file_url = await storage_service.save_file(safe_filename, contents)
+    # Save via StorageService with magic-bytes verification
+    try:
+        file_path, file_url = await storage_service.save_file(doc_id, file.filename, contents)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Storage failure while saving document: {str(e)}"
+        )
 
     # Extract text with PDF service
-    extracted = pdf_service.extract_text_and_pages(file_path)
-    page_count = extracted["page_count"]
-    chunks = pdf_service.chunk_text(extracted["pages"])
-    chunk_count = len(chunks)
+    try:
+        extracted = pdf_service.extract_text_and_pages(file_path)
+        page_count = extracted["page_count"]
+        chunks = pdf_service.chunk_text(extracted["pages"])
+        chunk_count = len(chunks)
 
-    # Index chunks in FAISS vector engine
-    embedding_service.index_document_chunks(doc_id, chunks)
+        # Index chunks in dense semantic FAISS vector engine
+        embedding_service.index_document_chunks(doc_id, chunks)
 
-    # Generate document insights
-    extracted_insights = insight_service.generate_document_insights(
-        file.filename, extracted["full_text"], extracted["pages"]
-    )
+        # Generate document insights
+        extracted_insights = insight_service.generate_document_insights(
+            file.filename, extracted["full_text"], extracted["pages"]
+        )
+    except ValueError as ve:
+        # Clean up uploaded file on extraction/validation failure
+        storage_service.delete_file(file_path)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(ve)
+        )
+    except Exception as e:
+        # Clean up on internal failure
+        storage_service.delete_file(file_path)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Document indexing pipeline failed: {str(e)}"
+        )
+
+    # Determine automatic category
+    name_low = file.filename.lower()
+    if any(k in name_low for k in ["finan", "q1", "q2", "q3", "q4", "audit", "revenue", "budget"]):
+        category = "Finance"
+    elif any(k in name_low for k in ["tech", "arch", "system", "code", "api"]):
+        category = "Engineering"
+    elif any(k in name_low for k in ["legal", "sla", "contract", "soc2", "compliance"]):
+        category = "Legal & Compliance"
+    elif any(k in name_low for k in ["research", "paper", "study", "clinical"]):
+        category = "Research"
+    else:
+        category = "General"
 
     # Save Document record to DB
     new_doc = Document(
@@ -68,8 +109,9 @@ async def upload_document(
         file_size=file_size_str,
         page_count=page_count,
         chunk_count=chunk_count,
-        category="Engineering" if "tech" in file.filename.lower() or "arch" in file.filename.lower() else "General",
-        status="Ready"
+        category=category,
+        status="Ready",
+        processing_progress=100
     )
     db.add(new_doc)
     db.flush()
@@ -93,6 +135,8 @@ async def upload_document(
         pageCount=new_doc.page_count,
         chunkCount=new_doc.chunk_count,
         status=new_doc.status,
+        processingProgress=new_doc.processing_progress,
+        errorMessage=new_doc.error_message,
         category=new_doc.category,
         createdAt=new_doc.created_at.strftime("%Y-%m-%d"),
         summary=extracted_insights["summary"],
@@ -116,6 +160,8 @@ def get_documents(db: Session = Depends(get_db), current_user: User = Depends(ge
             pageCount=d.page_count,
             chunkCount=d.chunk_count,
             status=d.status,
+            processingProgress=d.processing_progress or 100,
+            errorMessage=d.error_message,
             category=d.category,
             createdAt=d.created_at.strftime("%Y-%m-%d"),
             summary=insight.summary if insight else "Document indexed and ready for AI conversation.",
@@ -140,6 +186,8 @@ def get_document(doc_id: str, db: Session = Depends(get_db), current_user: User 
         pageCount=doc.page_count,
         chunkCount=doc.chunk_count,
         status=doc.status,
+        processingProgress=doc.processing_progress or 100,
+        errorMessage=doc.error_message,
         category=doc.category,
         createdAt=doc.created_at.strftime("%Y-%m-%d"),
         summary=insight.summary if insight else "",
@@ -154,8 +202,11 @@ def delete_document(doc_id: str, db: Session = Depends(get_db), current_user: Us
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
 
+    # 1. Clean up file from storage
     storage_service.delete_file(doc.file_path)
+    # 2. Clean up vector index and chunk files
     embedding_service.delete_index(doc.id)
+    # 3. Clean up database records (cascading deletes chats & insights)
     db.delete(doc)
     db.commit()
     return None

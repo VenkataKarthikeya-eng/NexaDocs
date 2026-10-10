@@ -13,6 +13,7 @@ import {
   Save
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
+import { toast } from '../store/useToastStore';
 
 export default function ProfilePage() {
   const { user, updateProfile, logout } = useAuthStore();
@@ -23,9 +24,14 @@ export default function ProfilePage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    await updateProfile({ name, company, role });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    const res = await updateProfile({ name, company, role });
+    if (res?.success) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      toast.success("Profile changes saved successfully!");
+    } else {
+      toast.error(res?.error || "Failed to update profile.");
+    }
   };
 
   return (
