@@ -206,6 +206,15 @@ class PersistentVectorService:
                 should_close = True
 
             try:
+                # Ensure document exists before modifying document_chunks to guarantee foreign key integrity
+                from app.models.document import Document
+                doc_record = session.query(Document).filter(Document.id == doc_id).first()
+                if not doc_record:
+                    print(f"[VectorService] Notice: Document '{doc_id}' not found in DB. Skipping PostgreSQL chunk persistence.")
+                    if should_close:
+                        session.close()
+                    return
+
                 # Remove any existing chunks for this document (clean re-indexing)
                 session.query(DocumentChunk).filter(DocumentChunk.document_id == doc_id).delete()
 
@@ -240,6 +249,10 @@ class PersistentVectorService:
 
                 session.commit()
                 print(f"[VectorService] Successfully saved {len(chunks)} chunks for doc {doc_id} to PostgreSQL.")
+            except Exception as e:
+                session.rollback()
+                print(f"[VectorService] PostgreSQL chunk persistence rollback: {e}")
+                raise
             finally:
                 if should_close:
                     session.close()

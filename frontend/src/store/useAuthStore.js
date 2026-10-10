@@ -48,7 +48,14 @@ export const useAuthStore = create((set, get) => ({
       }
       throw new Error("Invalid response from server");
     } catch (err) {
-      const msg = err.response?.data?.detail || err.message || 'Login failed';
+      let msg = err.response?.data?.detail;
+      if (!msg) {
+        if (err.message === 'Network Error' || !err.response) {
+          msg = 'Unable to connect to NexaDocs API server. The free Render instance may be spinning up from idle, please retry in a few seconds.';
+        } else {
+          msg = err.message || 'Login failed';
+        }
+      }
       set({ error: msg, isLoading: false });
       return { success: false, error: msg };
     }
@@ -71,7 +78,14 @@ export const useAuthStore = create((set, get) => ({
       }
       throw new Error("Invalid response from server");
     } catch (err) {
-      const msg = err.response?.data?.detail || err.message || 'Registration failed';
+      let msg = err.response?.data?.detail;
+      if (!msg) {
+        if (err.message === 'Network Error' || !err.response) {
+          msg = 'Unable to connect to NexaDocs API server. The free Render instance may be spinning up from idle, please retry in a few seconds.';
+        } else {
+          msg = err.message || 'Registration failed';
+        }
+      }
       set({ error: msg, isLoading: false });
       return { success: false, error: msg };
     }

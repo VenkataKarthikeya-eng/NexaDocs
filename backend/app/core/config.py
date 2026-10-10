@@ -1,5 +1,6 @@
 import os
 import secrets
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENV_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env")
@@ -50,9 +51,25 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:4173",
         "https://nexa-docs.vercel.app",
-        "https://nexadocs.vercel.app"
+        "https://nexadocs.vercel.app",
+        "https://nexadocs.onrender.com",
+        "https://nexadocs-api.onrender.com"
     ]
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v):
+        if isinstance(v, str):
+            if v.startswith("[") and v.endswith("]"):
+                import json
+                try:
+                    return json.loads(v)
+                except Exception:
+                    pass
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
 
     model_config = SettingsConfigDict(
         env_file=ENV_PATH if os.path.exists(ENV_PATH) else None,

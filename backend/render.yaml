@@ -33,6 +33,6 @@ services:
       - key: S3_SECRET_ACCESS_KEY
         sync: false
       - key: CORS_ORIGINS
-        value: '["https://nexa-docs.vercel.app"]'
+        value: '["https://nexa-docs.vercel.app", "https://nexadocs.vercel.app"]'
       - key: DEBUG
         value: "False"

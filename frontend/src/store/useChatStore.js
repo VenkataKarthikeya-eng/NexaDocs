@@ -89,7 +89,7 @@ export const useChatStore = create((set, get) => ({
     });
 
     const token = localStorage.getItem('nexadocs_token');
-    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+    const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://nexadocs.onrender.com/api/v1' : 'http://localhost:8000/api/v1');
 
     try {
       const response = await fetch(`${apiBase}/ai/chat/stream`, {
