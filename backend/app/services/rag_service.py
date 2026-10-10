@@ -92,9 +92,18 @@ class RAGService:
                                 parts = candidates[0]["content"].get("parts", [])
                                 full_text = "".join(p.get("text", "") for p in parts if "text" in p).strip()
                                 if full_text:
+                                    abstain_markers = [
+                                        "does not contain sufficient",
+                                        "not mentioned in the",
+                                        "not found in the",
+                                        "cannot find",
+                                        "no information",
+                                        "not provided in the"
+                                    ]
+                                    is_abstaining = any(m in full_text.lower() for m in abstain_markers)
                                     return {
                                         "answer": full_text,
-                                        "sources": citations
+                                        "sources": [] if is_abstaining else citations
                                     }
                         elif res.status_code in [503, 429, 404]:
                             print(f"[RAGService] Model {model_name} returned status {res.status_code}. Trying next candidate model...")

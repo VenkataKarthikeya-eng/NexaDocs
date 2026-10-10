@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.models import User, Document, ChatHistory, Insight
+from app.models import User, Document, ChatHistory, Insight, DocumentChunk
 from app.api import auth, users, documents, ai
 
 # Initialize Database tables in PostgreSQL / SQLite

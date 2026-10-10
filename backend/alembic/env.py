@@ -22,7 +22,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.core.config import settings
 from app.core.database import Base
-from app.models import User, Document, ChatHistory, Insight, DocumentChunk
+try:
+    from app.models import User, Document, ChatHistory, Insight, DocumentChunk
+except ImportError:
+    from app.models.user import User
+    from app.models.document import Document
+    from app.models.chat_history import ChatHistory
+    from app.models.insight import Insight
+    from app.models.document_chunk import DocumentChunk
 
 target_metadata = Base.metadata
 

@@ -1,4 +1,5 @@
 import os
+import io
 from typing import List, Dict, Any, Optional
 
 try:
@@ -11,37 +12,32 @@ except ImportError:
 
 import pypdf
 
+
 class PDFService:
     @staticmethod
-    def extract_text_and_pages(file_path: str) -> Dict[str, Any]:
+    def extract_text_and_pages_from_bytes(content: bytes, filename: str = "document.pdf") -> Dict[str, Any]:
         """
-        Extracts verified text content and exact physical page metadata from a PDF file.
+        Extracts verified text content and exact physical page metadata directly from PDF bytes in memory.
         Uses PyMuPDF (fitz) as primary high-performance engine with PyPDF as fallback.
         Raises ValueError with clear message for corrupt, empty, scanned, or encrypted PDFs.
         """
-        if not os.path.exists(file_path):
-            raise ValueError(f"PDF file not found at path: {file_path}")
-
-        file_size = os.path.getsize(file_path)
-        if file_size == 0:
+        if not content or len(content) == 0:
             raise ValueError("Uploaded PDF file is completely empty (0 bytes).")
 
         # Validate PDF magic header bytes
-        with open(file_path, "rb") as f:
-            header = f.read(8)
-            if not header.startswith(b"%PDF-"):
-                raise ValueError("Invalid file format: File header does not match PDF specification (%PDF-).")
+        if not content.startswith(b"%PDF-"):
+            raise ValueError("Invalid file format: File header does not match PDF specification (%PDF-).")
 
         pages = []
         full_text = ""
         total_pages = 0
         has_images = False
 
-        # Attempt extraction via PyMuPDF (fitz)
+        # 1. Primary Engine: PyMuPDF (fitz) from byte stream
         mupdf_success = False
         if fitz is not None:
             try:
-                doc = fitz.open(file_path)
+                doc = fitz.open(stream=content, filetype="pdf")
                 if doc.is_encrypted:
                     doc.close()
                     raise ValueError("Password-protected or encrypted PDF documents are not supported. Please remove the password and try again.")
@@ -61,7 +57,7 @@ class PDFService:
                     })
                     if clean_page_text:
                         full_text += f"\n--- Page {page_num} ---\n" + clean_page_text
-                    
+
                     if not has_images:
                         image_list = page.get_images()
                         if image_list:
@@ -77,10 +73,11 @@ class PDFService:
                 full_text = ""
                 mupdf_success = False
 
-        # Fallback to PyPDF if PyMuPDF not available or encountered parsing error
+        # 2. Fallback Engine: PyPDF from BytesIO stream
         if not mupdf_success:
             try:
-                reader = pypdf.PdfReader(file_path)
+                pdf_stream = io.BytesIO(content)
+                reader = pypdf.PdfReader(pdf_stream)
                 if reader.is_encrypted:
                     raise ValueError("Password-protected or encrypted PDF documents are not supported. Please remove the password and try again.")
 
@@ -121,6 +118,28 @@ class PDFService:
             "full_text": full_text.strip(),
             "pages": pages
         }
+
+    @classmethod
+    def extract_text_and_pages(cls, file_path: str) -> Dict[str, Any]:
+        """
+        Extracts verified text content and page metadata from a file path or s3:// URI.
+        Supports both local paths and S3 object storage references.
+        """
+        if not file_path:
+            raise ValueError("File path cannot be empty.")
+
+        if file_path.startswith("s3://"):
+            from app.services.storage_service import storage_service
+            content = storage_service.get_file_bytes(file_path)
+            return cls.extract_text_and_pages_from_bytes(content, filename=os.path.basename(file_path))
+
+        if not os.path.exists(file_path):
+            raise ValueError(f"PDF file not found at path: {file_path}")
+
+        with open(file_path, "rb") as f:
+            content = f.read()
+
+        return cls.extract_text_and_pages_from_bytes(content, filename=os.path.basename(file_path))
 
     @staticmethod
     def chunk_text(pages: List[Dict[str, Any]], chunk_size: int = 700, overlap: int = 150) -> List[Dict[str, Any]]:
@@ -177,5 +196,6 @@ class PDFService:
             raise ValueError("No valid text chunks could be generated from document pages.")
 
         return chunks
+
 
 pdf_service = PDFService()

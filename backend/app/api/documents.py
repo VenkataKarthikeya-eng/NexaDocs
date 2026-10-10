@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -46,7 +46,24 @@ async def upload_document(
     file_size_mb = round(len(contents) / (1024 * 1024), 2)
     file_size_str = f"{file_size_mb} MB" if file_size_mb >= 0.01 else "< 0.01 MB"
 
-    # Save via StorageService with magic-bytes verification
+    # 1. Extract text and physical pages directly from in-memory bytes
+    try:
+        extracted = pdf_service.extract_text_and_pages_from_bytes(contents, file.filename)
+        page_count = extracted["page_count"]
+        chunks = pdf_service.chunk_text(extracted["pages"])
+        chunk_count = len(chunks)
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(ve)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"PDF parsing error: {str(e)}"
+        )
+
+    # 2. Save via StorageService (Neon S3 or local)
     try:
         file_path, file_url = await storage_service.save_file(doc_id, file.filename, contents)
     except HTTPException:
@@ -55,35 +72,6 @@ async def upload_document(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Storage failure while saving document: {str(e)}"
-        )
-
-    # Extract text with PDF service
-    try:
-        extracted = pdf_service.extract_text_and_pages(file_path)
-        page_count = extracted["page_count"]
-        chunks = pdf_service.chunk_text(extracted["pages"])
-        chunk_count = len(chunks)
-
-        # Index chunks in dense semantic FAISS vector engine
-        embedding_service.index_document_chunks(doc_id, chunks)
-
-        # Generate document insights
-        extracted_insights = insight_service.generate_document_insights(
-            file.filename, extracted["full_text"], extracted["pages"]
-        )
-    except ValueError as ve:
-        # Clean up uploaded file on extraction/validation failure
-        storage_service.delete_file(file_path)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(ve)
-        )
-    except Exception as e:
-        # Clean up on internal failure
-        storage_service.delete_file(file_path)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Document indexing pipeline failed: {str(e)}"
         )
 
     # Determine automatic category
@@ -99,7 +87,7 @@ async def upload_document(
     else:
         category = "General"
 
-    # Save Document record to DB
+    # 3. Save Document record to DB first (so document_chunks foreign key succeeds)
     new_doc = Document(
         id=doc_id,
         user_id=current_user.id,
@@ -115,6 +103,23 @@ async def upload_document(
     )
     db.add(new_doc)
     db.flush()
+
+    # 4. Index chunks in persistent vector engine (PostgreSQL/Gemini) and generate insights
+    try:
+        embedding_service.index_document_chunks(doc_id, chunks, db=db)
+
+        # Generate document insights
+        extracted_insights = insight_service.generate_document_insights(
+            file.filename, extracted["full_text"], extracted["pages"]
+        )
+    except Exception as e:
+        # Clean up stored file and DB transaction on pipeline failure
+        storage_service.delete_file(file_path)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Document indexing pipeline failed: {str(e)}"
+        )
 
     # Save Insight record to DB
     new_insight = Insight(
@@ -217,9 +222,29 @@ def get_document_file(doc_id: str, db: Session = Depends(get_db), current_user: 
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
 
+    # 1. Neon S3-compatible private object storage handling
+    if doc.file_path.startswith("s3://"):
+        # Generate presigned download URL for private bucket
+        presigned = storage_service.generate_presigned_download_url(doc.file_path, filename=doc.filename)
+        if presigned:
+            return RedirectResponse(url=presigned, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+        # Fallback to direct authenticated server-side stream
+        try:
+            content = storage_service.get_file_bytes(doc.file_path)
+            return Response(
+                content=content,
+                media_type="application/pdf",
+                headers={"Content-Disposition": f'inline; filename="{doc.filename}"'}
+            )
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found in object storage: {str(e)}")
+
+    # 2. Direct external HTTPS URL
     if doc.file_path.startswith("http://") or doc.file_path.startswith("https://"):
         return RedirectResponse(url=doc.file_path)
 
+    # 3. Local filesystem storage
     if not os.path.exists(doc.file_path):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found on storage server.")
 

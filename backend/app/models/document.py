@@ -25,3 +25,4 @@ class Document(Base):
     owner = relationship("User", back_populates="documents")
     chats = relationship("ChatHistory", back_populates="document", cascade="all, delete-orphan")
     insight = relationship("Insight", back_populates="document", uselist=False, cascade="all, delete-orphan")
+    chunks = relationship("DocumentChunk", back_populates="document", cascade="all, delete-orphan")
