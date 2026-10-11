@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import api from '../services/api';
+import api, { formatApiError } from '../services/api';
 
 const storedToken = localStorage.getItem('nexadocs_token');
 const storedUser = localStorage.getItem('nexadocs_user');
@@ -10,6 +10,7 @@ export const useAuthStore = create((set, get) => ({
   isAuthenticated: !!storedToken,
   isLoading: false,
   error: null,
+  errorType: null,
 
   checkAuth: async () => {
     const token = localStorage.getItem('nexadocs_token');
@@ -32,7 +33,7 @@ export const useAuthStore = create((set, get) => ({
   },
 
   login: async (email, password) => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, errorType: null });
     try {
       const response = await api.post('/auth/login', { email, password });
 
@@ -43,26 +44,19 @@ export const useAuthStore = create((set, get) => ({
         localStorage.setItem('nexadocs_token', token);
         localStorage.setItem('nexadocs_user', JSON.stringify(user));
 
-        set({ user, token, isAuthenticated: true, isLoading: false, error: null });
+        set({ user, token, isAuthenticated: true, isLoading: false, error: null, errorType: null });
         return { success: true };
       }
       throw new Error("Invalid response from server");
     } catch (err) {
-      let msg = err.response?.data?.detail;
-      if (!msg) {
-        if (err.message === 'Network Error' || !err.response) {
-          msg = 'Unable to connect to NexaDocs API server. The free Render instance may be spinning up from idle, please retry in a few seconds.';
-        } else {
-          msg = err.message || 'Login failed';
-        }
-      }
-      set({ error: msg, isLoading: false });
-      return { success: false, error: msg };
+      const errorObj = formatApiError(err, 'Login failed');
+      set({ error: errorObj.message, errorType: errorObj.type, isLoading: false });
+      return { success: false, error: errorObj.message, errorType: errorObj.type };
     }
   },
 
   register: async (name, email, password) => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, errorType: null });
     try {
       const response = await api.post('/auth/register', { name, email, password });
 
@@ -73,28 +67,21 @@ export const useAuthStore = create((set, get) => ({
         localStorage.setItem('nexadocs_token', token);
         localStorage.setItem('nexadocs_user', JSON.stringify(user));
 
-        set({ user, token, isAuthenticated: true, isLoading: false, error: null });
+        set({ user, token, isAuthenticated: true, isLoading: false, error: null, errorType: null });
         return { success: true };
       }
       throw new Error("Invalid response from server");
     } catch (err) {
-      let msg = err.response?.data?.detail;
-      if (!msg) {
-        if (err.message === 'Network Error' || !err.response) {
-          msg = 'Unable to connect to NexaDocs API server. The free Render instance may be spinning up from idle, please retry in a few seconds.';
-        } else {
-          msg = err.message || 'Registration failed';
-        }
-      }
-      set({ error: msg, isLoading: false });
-      return { success: false, error: msg };
+      const errorObj = formatApiError(err, 'Registration failed');
+      set({ error: errorObj.message, errorType: errorObj.type, isLoading: false });
+      return { success: false, error: errorObj.message, errorType: errorObj.type };
     }
   },
 
   logout: () => {
     localStorage.removeItem('nexadocs_token');
     localStorage.removeItem('nexadocs_user');
-    set({ user: null, token: null, isAuthenticated: false, error: null });
+    set({ user: null, token: null, isAuthenticated: false, error: null, errorType: null });
   },
 
   updateProfile: async (updatedData) => {

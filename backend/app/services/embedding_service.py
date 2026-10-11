@@ -163,20 +163,30 @@ class PersistentVectorService:
         return np.array([self.get_embedding(t) for t in texts], dtype=np.float32)
 
     def _check_pgvector_column(self, db) -> bool:
-        """Checks if the document_chunks table has an active native pgvector column."""
+        """Checks if the document_chunks table has an active native pgvector column safely without poisoning transactions."""
         if self._has_pgvector_col is not None:
             return self._has_pgvector_col
         try:
-            res = db.execute(text(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name = 'document_chunks' AND column_name = 'embedding';"
-            )).fetchone()
-            self._has_pgvector_col = bool(res)
-        except Exception:
+            from sqlalchemy import inspect
+            bind = db.get_bind() if hasattr(db, "get_bind") else getattr(db, "bind", None)
+            if bind and bind.dialect.name == "postgresql":
+                inspector = inspect(bind)
+                columns = [c['name'] for c in inspector.get_columns('document_chunks')]
+                self._has_pgvector_col = 'embedding' in columns
+            else:
+                self._has_pgvector_col = False
+        except Exception as e:
+            print(f"[VectorService] Notice on pgvector column check: {e}")
             self._has_pgvector_col = False
         return self._has_pgvector_col
 
-    def index_document_chunks(self, doc_id: str, chunks: List[Dict[str, Any]], db: Optional[Any] = None):
+    def index_document_chunks(
+        self,
+        doc_id: str,
+        chunks: List[Dict[str, Any]],
+        db: Optional[Any] = None,
+        commit: bool = True
+    ):
         """
         Computes dense embeddings and persists chunks and vectors into PostgreSQL (Neon).
         Zero dependence on ephemeral Render disk files.
@@ -195,69 +205,72 @@ class PersistentVectorService:
             chunk["embedding"] = embeddings[idx].tolist()
 
         # 2. Persist in PostgreSQL (Neon)
+        from app.core.database import SessionLocal
+        from app.models.document_chunk import DocumentChunk
+        from app.models.document import Document
+
+        should_close = False
+        session = db
+        if session is None:
+            session = SessionLocal()
+            should_close = True
+
         try:
-            from app.core.database import SessionLocal
-            from app.models.document_chunk import DocumentChunk
+            # Ensure parent document exists before modifying document_chunks to guarantee foreign key integrity
+            doc_record = session.query(Document).filter(Document.id == doc_id).first()
+            if not doc_record:
+                err_msg = f"Document '{doc_id}' not found in active database session. Parent document must exist before persisting chunks."
+                print(f"[VectorService] ERROR: {err_msg}")
+                raise ValueError(err_msg)
 
-            should_close = False
-            session = db
-            if session is None:
-                session = SessionLocal()
-                should_close = True
+            # Idempotently delete existing chunks for this document before inserting
+            session.query(DocumentChunk).filter(DocumentChunk.document_id == doc_id).delete()
+            session.flush()
 
-            try:
-                # Ensure document exists before modifying document_chunks to guarantee foreign key integrity
-                from app.models.document import Document
-                doc_record = session.query(Document).filter(Document.id == doc_id).first()
-                if not doc_record:
-                    print(f"[VectorService] Notice: Document '{doc_id}' not found in DB. Skipping PostgreSQL chunk persistence.")
-                    if should_close:
-                        session.close()
-                    return
+            has_vec = self._check_pgvector_column(session)
+            for idx, chunk in enumerate(chunks):
+                emb_list = chunk.get("embedding", [])
+                chunk_obj = DocumentChunk(
+                    document_id=doc_id,
+                    chunk_index=chunk.get("chunk_id", idx),
+                    page_number=chunk.get("page", 1),
+                    content=chunk.get("text", ""),
+                    metadata_json=json.dumps({
+                        "char_start": chunk.get("char_start", 0),
+                        "char_end": chunk.get("char_end", 0),
+                        "chunk_id": chunk.get("chunk_id", idx)
+                    }),
+                    embedding_json=json.dumps(emb_list)
+                )
+                session.add(chunk_obj)
+                session.flush()
 
-                # Remove any existing chunks for this document (clean re-indexing)
-                session.query(DocumentChunk).filter(DocumentChunk.document_id == doc_id).delete()
-
-                has_vec = self._check_pgvector_column(session)
-                for idx, chunk in enumerate(chunks):
-                    emb_list = chunk["embedding"]
-                    chunk_obj = DocumentChunk(
-                        document_id=doc_id,
-                        chunk_index=chunk.get("chunk_id", idx),
-                        page_number=chunk.get("page", 1),
-                        content=chunk.get("text", ""),
-                        metadata_json=json.dumps({
-                            "char_start": chunk.get("char_start", 0),
-                            "char_end": chunk.get("char_end", 0),
-                            "chunk_id": chunk.get("chunk_id", idx)
-                        }),
-                        embedding_json=json.dumps(emb_list)
-                    )
-                    session.add(chunk_obj)
-                    session.flush()
-
-                    if has_vec:
-                        try:
-                            # Format for pgvector vector column
-                            vec_str = "[" + ",".join(str(x) for x in emb_list) + "]"
+                if has_vec and emb_list:
+                    # Execute in a nested SAVEPOINT transaction so any driver/dimension error cannot abort the parent transaction
+                    try:
+                        with session.begin_nested():
+                            vec_str = "[" + ",".join(str(float(x)) for x in emb_list) + "]"
                             session.execute(
-                                text("UPDATE document_chunks SET embedding = :vec::vector WHERE id = :id"),
+                                text("UPDATE document_chunks SET embedding = CAST(:vec AS vector) WHERE id = :id"),
                                 {"vec": vec_str, "id": chunk_obj.id}
                             )
-                        except Exception:
-                            pass
+                    except Exception as vec_err:
+                        # Non-critical: pgvector column update skipped; fallback embedding_json is already persisted
+                        pass
 
+            if commit:
                 session.commit()
-                print(f"[VectorService] Successfully saved {len(chunks)} chunks for doc {doc_id} to PostgreSQL.")
-            except Exception as e:
-                session.rollback()
-                print(f"[VectorService] PostgreSQL chunk persistence rollback: {e}")
-                raise
-            finally:
-                if should_close:
-                    session.close()
+            else:
+                session.flush()
+
+            print(f"[VectorService] Successfully saved {len(chunks)} chunks for doc {doc_id} to PostgreSQL.")
         except Exception as e:
-            print(f"[VectorService] PostgreSQL chunk persistence error: {e}")
+            session.rollback()
+            print(f"[VectorService] PostgreSQL chunk persistence rollback: {e}")
+            raise
+        finally:
+            if should_close:
+                session.close()
 
         # 3. Optional local disk persistence for test compatibility
         try:
@@ -414,6 +427,9 @@ class PersistentVectorService:
             try:
                 db.query(DocumentChunk).filter(DocumentChunk.document_id == doc_id).delete()
                 db.commit()
+            except Exception as e:
+                db.rollback()
+                raise
             finally:
                 db.close()
         except Exception as e:

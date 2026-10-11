@@ -106,7 +106,7 @@ async def upload_document(
 
     # 4. Index chunks in persistent vector engine (PostgreSQL/Gemini) and generate insights
     try:
-        embedding_service.index_document_chunks(doc_id, chunks, db=db)
+        embedding_service.index_document_chunks(doc_id, chunks, db=db, commit=False)
 
         # Generate document insights
         extracted_insights = insight_service.generate_document_insights(

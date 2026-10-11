@@ -133,6 +133,9 @@ def seed_demo_data():
             }
         ]
 
+        all_seeded_successfully = True
+        failed_docs = []
+
         for s in sample_data:
             doc_id = s["id"]
             filename = s["filename"]
@@ -220,24 +223,50 @@ def seed_demo_data():
                 existing_ins.key_takeaways = s["highlights"]
                 db.commit()
 
-            # 4. Idempotently index document chunks (Document is GUARANTEED committed)
-            try:
-                embedding_service.index_document_chunks(doc_id, s["chunks"], db=db)
-            except Exception as chunk_err:
-                db.rollback()
-                print(f"[Seeder] Chunk indexing notice for {doc_id}: {chunk_err}")
+            # 4. Idempotently index document chunks if not already persisted
+            existing_chunks = db.query(DocumentChunk).filter(DocumentChunk.document_id == doc_id).all()
+            if len(existing_chunks) != len(s["chunks"]):
+                try:
+                    embedding_service.index_document_chunks(doc_id, s["chunks"], db=db, commit=True)
+                except Exception as chunk_err:
+                    db.rollback()
+                    print(f"[Seeder] Chunk indexing error for {doc_id}: {chunk_err}")
 
-        print(f"[Seeder] Successfully verified and seeded demo knowledge base ({len(sample_data)} docs).")
+            # 5. Strict verification: ensure Document, Insight, and required Chunks are actually persisted
+            verified_doc = db.query(Document).filter(Document.id == doc_id).first()
+            verified_ins = db.query(Insight).filter(Insight.document_id == doc_id).first()
+            verified_chunks = db.query(DocumentChunk).filter(DocumentChunk.document_id == doc_id).all()
+
+            if not verified_doc or not verified_ins or len(verified_chunks) < len(s["chunks"]):
+                all_seeded_successfully = False
+                failed_docs.append({
+                    "doc_id": doc_id,
+                    "doc_persisted": bool(verified_doc),
+                    "insight_persisted": bool(verified_ins),
+                    "chunks_persisted": len(verified_chunks),
+                    "chunks_required": len(s["chunks"])
+                })
+                print(f"[Seeder] Persistence verification FAILED for {doc_id}: doc={bool(verified_doc)}, insight={bool(verified_ins)}, chunks={len(verified_chunks)}/{len(s['chunks'])}")
+
+        if all_seeded_successfully:
+            print(f"[Seeder] Successfully verified and seeded demo knowledge base ({len(sample_data)} docs).")
+        else:
+            print(f"[Seeder] CRITICAL: Seeding verification failed. Incomplete documents: {failed_docs}")
+            raise RuntimeError(f"Demo knowledge base seeding verification failed: {failed_docs}")
     except Exception as e:
         db.rollback()
-        print(f"[Seeder] Seeder notice: {e}")
+        print(f"[Seeder] Seeder failure: {e}")
+        raise
     finally:
         db.close()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: seed demo user and initial documents idempotently
-    seed_demo_data()
+    try:
+        seed_demo_data()
+    except Exception as e:
+        print(f"[Lifespan] Seeder notice during startup: {e}")
     yield
 
 app = FastAPI(

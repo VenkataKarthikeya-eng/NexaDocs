@@ -67,7 +67,11 @@ export default function AuthPages() {
 
             {/* Error Banner */}
             {formError && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-700 flex items-center gap-2">
+              <div className={`mb-4 p-3 rounded-xl text-xs flex items-center gap-2 ${
+                formError.toLowerCase().includes('cold start') || formError.toLowerCase().includes('timeout')
+                  ? 'bg-amber-50 border border-amber-200 text-amber-800'
+                  : 'bg-red-50 border border-red-100 text-red-700'
+              }`}>
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{formError}</span>
               </div>
